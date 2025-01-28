@@ -12,6 +12,7 @@ class Trainer:
         self,
         model: SpatialNCA,
         n_epochs=1000,
+        batch_size=1,
         n_steps=10,
         lr=1e-3,
         clip_value=1.0,
@@ -19,6 +20,7 @@ class Trainer:
         device="cuda",
     ):
         self.n_epochs = n_epochs
+        self.batch_size = batch_size
         self.lr = lr
         self.clip_value = clip_value
         self.reintv = reinit_interval
@@ -92,8 +94,19 @@ class Tester:
 
 
 class StepSampler:
-    def __init__(self, n_steps=None, min_steps=5, max_steps=10):
+    def __init__(self, n_steps=None, min_steps=None, max_steps=None, seed=42):
         self.n_steps = n_steps
+        self.min_steps = min_steps
+        self.max_steps = max_steps
+
+        self.rng = np.random.default_rng(seed)
+
+        assert n_steps is not None or (
+            min_steps is not None and max_steps is not None
+        ), "Either n_steps or min_steps and max_steps must be provided"
 
     def sample(self):
-        return self.n_steps
+        if self.n_steps is not None:
+            return self.n_steps
+        else:
+            return self.rng.integers(self.min_steps, self.max_steps + 1)
