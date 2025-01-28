@@ -5,6 +5,7 @@ import torch_geometric as pyg
 import torch
 import matplotlib.pyplot as plt
 import random
+import seaborn as sns
 
 
 def grid2d(shape=(10, 10)):
@@ -70,3 +71,67 @@ def seed_everything(seed):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
     # torch.use_deterministic_algorithms(True)
+
+
+def spatial_scatter(adata, color=None, pos_key="spatial", cmap=None):
+    x, y = adata.obsm[pos_key].T
+
+    if color is not None:
+        obs_data = adata.obs[color]
+        unique_cats = obs_data.unique()
+        n_cats = len(unique_cats)
+
+        palette = sns.color_palette(
+            "tab20" if n_cats > 10 else "tab10", len(unique_cats)
+        )
+        color_mapping = {category: palette[i] for i, category in enumerate(unique_cats)}
+
+        colors = [color_mapping[e] for e in obs_data.values]
+    else:
+        colors = "blue"
+
+    # Plot with subplots and clear axes
+    # fig, ax = plt.subplots(figsize=(6, 6))
+    fig, ax = plt.subplots()
+
+    scatter = ax.scatter(x, y, c=colors, label=color)
+    if color is not None:
+        handles = [
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color=palette[i],
+                linestyle="None",
+                markersize=8,
+                label=category,
+            )
+            for i, category in enumerate(unique_cats)
+        ]
+        ax.legend(
+            handles=handles, title=color, loc="center left", bbox_to_anchor=(1, 0.5)
+        )
+    # Set equal scaling for the x and y axes
+    # # ax.set_aspect("equal", adjustable="datalim")
+    # # plt.tight_layout()
+    # # Add axis labels and title
+    # fig.subplots_adjust(left=0.1, right=0.85, top=0.9, bottom=0.1)  # Fine-tune padding
+    ax.set_xlabel("X-coordinate")
+    ax.set_ylabel("Y-coordinate")
+    plt.show()
+
+
+def uniform_point_cloud(num_points, radius):
+    # Generate random angles uniformly distributed between 0 and 2π
+    angles = np.random.uniform(0, 2 * np.pi, num_points)
+
+    # Generate radii with uniform distribution within the circle
+    radii = np.sqrt(np.random.uniform(0, radius**2, num_points))
+
+    # Convert polar coordinates to Cartesian coordinates
+    x = radii * np.cos(angles)
+    y = radii * np.sin(angles)
+
+    # Combine into a point cloud
+    point_cloud = np.vstack((x, y)).T.astype(np.float32)
+    return point_cloud
