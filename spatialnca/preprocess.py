@@ -51,7 +51,11 @@ class PreProcessor:
 
 
 def adata_to_pyg(adata, emb_key="X_pca", pos_key="spatial"):
-    x = npc.utils.to_torch(adata.obsm[emb_key]).float()
+    if emb_key is None:
+        x = npc.utils.to_torch(adata.X).float()
+    else:
+        x = npc.utils.to_torch(adata.obsm[emb_key]).float()
+
     pos = npc.utils.to_torch(adata.obsm[pos_key]).float()
-    data = pyg.data.Data(x=x, pos=pos)
+    data = pyg.data.Data(x=x, pos=pos, pos_init=None)
     return data
