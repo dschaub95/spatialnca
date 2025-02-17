@@ -119,19 +119,3 @@ def spatial_scatter(adata, color=None, pos_key="spatial", cmap=None):
     ax.set_xlabel("X-coordinate")
     ax.set_ylabel("Y-coordinate")
     plt.show()
-
-
-def uniform_point_cloud(num_points, radius):
-    # Generate random angles uniformly distributed between 0 and 2π
-    angles = np.random.uniform(0, 2 * np.pi, num_points)
-
-    # Generate radii with uniform distribution within the circle
-    radii = np.sqrt(np.random.uniform(0, radius**2, num_points))
-
-    # Convert polar coordinates to Cartesian coordinates
-    x = radii * np.cos(angles)
-    y = radii * np.sin(angles)
-
-    # Combine into a point cloud
-    point_cloud = np.vstack((x, y)).T.astype(np.float32)
-    return point_cloud
