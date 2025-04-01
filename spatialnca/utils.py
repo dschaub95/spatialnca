@@ -6,6 +6,7 @@ import torch
 import matplotlib.pyplot as plt
 import random
 import seaborn as sns
+import scanpy as sc
 
 
 def grid2d(shape=(10, 10)):
@@ -33,6 +34,12 @@ def grid2d_graph(shape=(10, 10), radius=0.15, self_loops=False):
     return data
 
 
+def generate_grid_adata(shape=(10, 10)):
+    coords = grid2d(shape)
+    adata = sc.AnnData(X=np.zeros((coords.shape[0], 100)), obsm={"spatial": coords})
+    return adata
+
+
 def to_networkx(edge_index):
     # transform the graph inside the adata object to a networkx graph
     edge_index = edge_index.detach().cpu().numpy()
@@ -57,9 +64,9 @@ def plot_pyg(edge_index, pos=None, show_selfloops=False):
 
 def random_k_regular_graph(num_nodes, k, seed=42, device="cpu"):
     G = nx.random_regular_graph(d=k, n=num_nodes, seed=seed)
-    data = pyg.utils.from_networkx(G)
-    data = data.to(device)
-    return data
+    edge_index = pyg.utils.from_networkx(G).edge_index
+    edge_index = edge_index.to(device)
+    return edge_index
 
 
 def seed_everything(seed):
