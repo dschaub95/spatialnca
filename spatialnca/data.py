@@ -5,6 +5,21 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 import torch_geometric as pyg
 
+from spatialnca.config import Config
+from spatialnca.utils import construct_graph, random_k_regular_graph
+
+
+def prepare_data(adata, cfg: Config, construct_edge_index=True):
+    # preprocessor = PreProcessor(cfg.n_pcs)
+    # preprocessor.fit_transform(adata)
+    data = adata_to_pyg(adata, emb_key=None)
+
+    # for debugging preconstruct edge index
+    if construct_edge_index:
+        data.edge_index = construct_graph(data.pos, knn=cfg.knn)
+    # data.edge_index = random_k_regular_graph(data.num_nodes, cfg.knn)
+    return data
+
 
 class PreProcessor:
     def __init__(self, n_pcs=50):
@@ -52,6 +67,8 @@ class PreProcessor:
 
 def adata_to_pyg(adata, emb_key="X_pca", pos_key="spatial"):
     if emb_key is None:
+        x = None
+    elif emb_key == "X":
         x = npc.utils.to_torch(adata.X).float()
     else:
         x = npc.utils.to_torch(adata.obsm[emb_key]).float()

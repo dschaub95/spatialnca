@@ -1,47 +1,39 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch_geometric.nn import MLP, MessagePassing
 import torch_geometric as pyg
-from torch_scatter import scatter
 
 from spatialnca.layers.mlp import SimpleMLP
 from spatialnca.layers.egnn import EGNNLayer
+from spatialnca.config import Config
 
 
 class SpatialNCA(nn.Module):
     def __init__(
         self,
         input_dim,
-        emb_dim,
-        knn=10,
-        radius=None,
-        reinit=False,
-        skip_connections=True,
-        bounds=None,
-        use_fixed_emb=False,  # for debugging
-        fixed_edge_index=False,
+        cfg: Config,
         **kwargs,
     ):
         super().__init__()
         self.input_dim = input_dim
-        self.emb_dim = emb_dim
-        self.knn = knn
-        self.radius = radius
-        self.reinit = reinit
-        self.skip_connections = skip_connections
-        self.bounds = bounds
-        self.mpnn = EGNNLayer(emb_dim, **kwargs)
+        self.emb_dim = cfg.emb_dim
+        self.knn = cfg.knn
+        self.radius = cfg.radius
+        self.add_init = cfg.add_init
+        self.skip_connections = cfg.skip_connections
+        self.bounds = cfg.bounds
+
+        self.mpnn = EGNNLayer(cfg)
         self.mlp_emb = SimpleMLP(
             in_channels=input_dim,
-            out_channels=emb_dim,
+            out_channels=cfg.emb_dim,
             n_layers=2,
             plain_last=True,
+            bias=cfg.bias,
             **kwargs,
         )
-        self.use_fixed_emb = use_fixed_emb
         self.fixed_emb = None
-        self.fixed_edge_index = fixed_edge_index
+        self.fixed_edge_index = True
 
     def init_fixed_emb(self, n_cells):
         if self.fixed_emb is None:
@@ -51,15 +43,11 @@ class SpatialNCA(nn.Module):
 
     def forward(self, h, pos, edge_index, h_init, edge_attr=None):
         # add initial node features
-        if self.reinit:
-            h = h + h_init
+        h = h + h_init if self.add_init else h
 
         # add residual connection
         h_update, pos_update = self.mpnn(h, pos, edge_index)
-        if self.skip_connections:
-            h = h + h_update
-        else:
-            h = h_update
+        h = h + h_update if self.skip_connections else h_update
         pos = pos + pos_update
         return h, pos
 
@@ -67,13 +55,19 @@ class SpatialNCA(nn.Module):
         tot_loss = 0
         n_steps = max(1, n_steps)
 
-        edge_index = self.init_edge_index(pos) if edge_index is None else edge_index
+        # create edge index if not provided, otherwise keep it fixed
+        if edge_index is None:
+            edge_index = self.init_edge_index(pos)
+            self.fixed_edge_index = False
+        else:
+            self.fixed_edge_index = True
 
         # embed the input features and store them
-        if self.use_fixed_emb:
-            self.init_fixed_emb(x.shape[0])
+        if x is None:
+            self.init_fixed_emb(pos.shape[0])
             self.h_init = self.fixed_emb
         else:
+            assert isinstance(x, torch.Tensor)
             self.h_init = self.mlp_emb(x)
 
         # start from the initial embedding if no (updated) h is provided
@@ -102,7 +96,7 @@ class SpatialNCA(nn.Module):
         # max_diff = diff.max().item()
         # min_diff = diff.min().item()
         # median_diff = torch.median(diff).item()
-        
+
         pos = pos_new
 
         # confine pos to bound range
@@ -155,17 +149,3 @@ class SpatialNCA(nn.Module):
     @property
     def device(self):
         return next(self.parameters()).device
-
-
-def construct_graph(pos, radius=None, knn=None, batch=None):
-    if radius is not None:
-        edge_index = pyg.nn.radius_graph(
-            pos, r=radius, loop=True, flow="source_to_target", batch=batch
-        )
-    elif knn is not None:
-        edge_index = pyg.nn.knn_graph(
-            pos, k=knn, loop=True, flow="source_to_target", batch=batch
-        )
-    else:
-        raise ValueError("Either radius or knn must be specified")
-    return edge_index

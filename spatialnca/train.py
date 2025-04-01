@@ -7,29 +7,23 @@ import matplotlib.pyplot as plt
 
 from spatialnca.model import SpatialNCA
 from spatialnca.spatial import uniform_point_cloud
-
+from spatialnca.config import Config
 
 class Trainer:
     def __init__(
         self,
         model: SpatialNCA,
-        n_epochs=1000,
-        batch_size=1,
-        n_steps=10,
-        lr=1e-3,
-        clip_value=1.0,
-        reinit_interval=np.inf,
-        device="cuda",
+        cfg: Config,
     ):
-        self.n_epochs = n_epochs
-        self.batch_size = batch_size
-        self.lr = lr
-        self.clip_value = clip_value
-        self.reintv = reinit_interval
-        self.device = device
+        self.n_epochs = cfg.n_epochs
+        self.batch_size = cfg.batch_size
+        self.lr = cfg.lr
+        self.clip_value = cfg.clip_value
+        self.reintv = cfg.reinit_interval
+        self.device = cfg.device
 
         self.model = model
-        self.step_sampler = StepSampler(n_steps)
+        self.step_sampler = StepSampler(cfg.n_steps)
 
     def setup_training(self, data):
         # TODO make this batch aware for later
@@ -105,9 +99,11 @@ class Trainer:
 
         return loss
 
-    def plot_history(self):
+    def plot_history(self, log_scale=True):
         df = pd.DataFrame(self.history)
         plt.plot(df["train_loss"])
+        if log_scale:
+            plt.yscale("log")
         plt.show()
 
     def init_node_positions(self, data):

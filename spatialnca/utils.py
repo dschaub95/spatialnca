@@ -69,6 +69,20 @@ def random_k_regular_graph(num_nodes, k, seed=42, device="cpu"):
     return edge_index
 
 
+def construct_graph(pos, radius=None, knn=None, batch=None):
+    if radius is not None:
+        edge_index = pyg.nn.radius_graph(
+            pos, r=radius, loop=True, flow="source_to_target", batch=batch
+        )
+    elif knn is not None:
+        edge_index = pyg.nn.knn_graph(
+            pos, k=knn, loop=True, flow="source_to_target", batch=batch
+        )
+    else:
+        raise ValueError("Either radius or knn must be specified")
+    return edge_index
+
+
 def seed_everything(seed):
     random.seed(seed)
     np.random.seed(seed)

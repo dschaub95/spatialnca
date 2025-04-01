@@ -2,46 +2,43 @@ from torch_geometric.nn import MessagePassing
 import torch
 from torch_scatter import scatter
 from spatialnca.layers.mlp import SimpleMLP
+from spatialnca.config import Config
 
 
 class EGNNLayer(MessagePassing):
     def __init__(
         self,
-        emb_dim,
-        hidden_channels=128,
-        n_layers_msg=2,
-        n_layers_upd=2,
-        n_layers_pos=2,
-        aggr="sum",
-        aggr_pos="mean",
-        msg_dim=None,
+        cfg: Config,
         **kwargs,
     ):
-        super().__init__(aggr=aggr)
-        msg_dim = msg_dim if msg_dim is not None else emb_dim
+        super().__init__(aggr=cfg.aggr)
+        msg_dim = cfg.msg_dim if cfg.msg_dim is not None else cfg.emb_dim
 
-        self.aggr_pos = aggr_pos
+        self.aggr_pos = cfg.aggr_pos
 
         self.mlp_msg = SimpleMLP(
-            in_channels=emb_dim * 2 + 1,
+            in_channels=cfg.emb_dim * 2 + 1,
             out_channels=msg_dim,
-            hidden_channels=hidden_channels,
-            n_layers=n_layers_msg,
+            hidden_channels=cfg.hidden_dim,
+            n_layers=cfg.n_layers_msg,
+            bias=cfg.bias,
             **kwargs,
         )
         self.mlp_upd = SimpleMLP(
             in_channels=msg_dim * 2,
-            out_channels=emb_dim,
-            hidden_channels=hidden_channels,
-            n_layers=n_layers_upd,
+            out_channels=cfg.emb_dim,
+            hidden_channels=cfg.hidden_dim,
+            n_layers=cfg.n_layers_upd,
+            bias=cfg.bias,
             **kwargs,
         )
         self.mlp_pos = SimpleMLP(
             in_channels=msg_dim,
             out_channels=1,
-            hidden_channels=hidden_channels,
-            n_layers=n_layers_pos,
+            hidden_channels=cfg.hidden_dim,
+            n_layers=cfg.n_layers_pos,
             plain_last=True,  # allow for negative values
+            bias=cfg.bias,
             **kwargs,
         )
 
