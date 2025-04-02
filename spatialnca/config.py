@@ -28,7 +28,7 @@ class BaseConfig:
         diffs = {}
         for key in common_keys:
             if dict1[key] != dict2[key]:
-                diffs[key] = dict1[key]
+                diffs[key] = f"{dict2[key]}->{dict1[key]}"
 
         return diffs
 
