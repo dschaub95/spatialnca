@@ -9,6 +9,7 @@ from spatialnca.model import SpatialNCA
 from spatialnca.spatial import uniform_point_cloud
 from spatialnca.config import Config
 
+
 class Trainer:
     def __init__(
         self,
@@ -99,11 +100,15 @@ class Trainer:
 
         return loss
 
-    def plot_history(self, log_scale=True):
+    def plot_history(self, log_scale=True, title=None, save_path=None):
         df = pd.DataFrame(self.history)
         plt.plot(df["train_loss"])
         if log_scale:
             plt.yscale("log")
+        if title is not None:
+            plt.title(title)
+        if save_path is not None:
+            plt.savefig(save_path, dpi=200, bbox_inches="tight")
         plt.show()
 
     def init_node_positions(self, data):
