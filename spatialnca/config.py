@@ -7,6 +7,31 @@ class BaseConfig:
     def to_dict(self):
         return self.__dict__
 
+    def __sub__(self, other: "BaseConfig") -> dict:
+        """
+        Returns a dictionary containing the entries that differ between two configs.
+        Only compares entries that exist in both configs.
+
+        Args:
+            other: Config object to subtract from self
+
+        Returns:
+            Dictionary with entries that differ, showing value from self
+        """
+        dict1 = self.to_dict()
+        dict2 = other.to_dict()
+
+        # Find common keys
+        common_keys = [k for k in dict1.keys() if k in dict2.keys()]
+
+        # Compare values for common keys
+        diffs = {}
+        for key in common_keys:
+            if dict1[key] != dict2[key]:
+                diffs[key] = dict2[key]
+
+        return diffs
+
 
 @dataclass
 class Config(BaseConfig):
@@ -14,6 +39,7 @@ class Config(BaseConfig):
 
     # data
     n_pcs: int = 50
+    emb_key: str | None = "X_pca"  # None to use learnable embedding per node
 
     # training
     n_epochs: int = 10000
@@ -40,6 +66,8 @@ class Config(BaseConfig):
     knn: int = 10
     radius: float | None = None
     bias: bool = True
+    act: str = "silu"
+    gpt2_weight_init: bool = False
 
 
 # class ModelConfig(BaseConfig):
