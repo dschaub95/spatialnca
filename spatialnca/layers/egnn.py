@@ -22,6 +22,7 @@ class EGNNLayer(MessagePassing):
             hidden_channels=cfg.hidden_dim,
             n_layers=cfg.n_layers_msg,
             bias=cfg.bias,
+            act=cfg.act,
             **kwargs,
         )
         self.mlp_upd = SimpleMLP(
@@ -30,6 +31,7 @@ class EGNNLayer(MessagePassing):
             hidden_channels=cfg.hidden_dim,
             n_layers=cfg.n_layers_upd,
             bias=cfg.bias,
+            act=cfg.act,
             **kwargs,
         )
         self.mlp_pos = SimpleMLP(
@@ -39,6 +41,7 @@ class EGNNLayer(MessagePassing):
             n_layers=cfg.n_layers_pos,
             plain_last=True,  # allow for negative values
             bias=cfg.bias,
+            act=cfg.act,
             **kwargs,
         )
 
