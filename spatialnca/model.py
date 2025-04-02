@@ -30,10 +30,21 @@ class SpatialNCA(nn.Module):
             n_layers=2,
             plain_last=True,
             bias=cfg.bias,
+            act=cfg.act,
             **kwargs,
         )
         self.fixed_emb = None
         self.fixed_edge_index = True
+
+        # Initialize weights
+        if cfg.gpt2_weight_init:
+            self.apply(self._init_weights)
+
+    def _init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
 
     def init_fixed_emb(self, n_cells):
         if self.fixed_emb is None:
@@ -149,3 +160,10 @@ class SpatialNCA(nn.Module):
     @property
     def device(self):
         return next(self.parameters()).device
+
+    def get_num_params(self):
+        """
+        Return the number of parameters in the model.
+        """
+        n_params = sum(p.numel() for p in self.parameters())
+        return n_params
