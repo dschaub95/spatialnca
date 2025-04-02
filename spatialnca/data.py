@@ -10,9 +10,9 @@ from spatialnca.utils import construct_graph, random_k_regular_graph
 
 
 def prepare_data(adata, cfg: Config, construct_edge_index=True):
-    # preprocessor = PreProcessor(cfg.n_pcs)
-    # preprocessor.fit_transform(adata)
-    data = adata_to_pyg(adata, emb_key=None)
+    preprocessor = PreProcessor(cfg.n_pcs)
+    preprocessor.fit_transform(adata)
+    data = adata_to_pyg(adata, emb_key=cfg.emb_key)
 
     # for debugging preconstruct edge index
     if construct_edge_index:
