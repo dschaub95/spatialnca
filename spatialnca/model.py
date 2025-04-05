@@ -63,8 +63,7 @@ class SpatialNCA(nn.Module):
         return h, pos
 
     def rollout(self, x, pos, n_steps, h=None, edge_index=None, loss_fn=None):
-        tot_loss = 0
-        n_steps = max(1, n_steps)
+        assert n_steps > 0, "n_steps must be greater than 0"
 
         # create edge index if not provided, otherwise keep it fixed
         if edge_index is None:
@@ -85,18 +84,15 @@ class SpatialNCA(nn.Module):
         h = self.h_init if h is None else h
 
         # run for multiple steps
-        for _ in range(n_steps):
+        loss = 0 if loss_fn is not None else None
+        for i in range(n_steps):
             h, pos, edge_index = self.step(h, pos, edge_index)
 
-            # compute intermediate loss (optional)
+            # compute mean intermediate loss (optional)
             if loss_fn is not None:
-                loss = loss_fn(pos)
-                tot_loss += loss
+                loss += loss_fn(pos) * (i + 1) / n_steps
 
-        if loss_fn is not None:
-            return h, pos, edge_index, tot_loss
-        else:
-            return h, pos, edge_index
+        return h, pos, edge_index, loss
 
     def step(self, h, pos, edge_index):
         h, pos_new = self.forward(h, pos, edge_index, h_init=self.h_init)

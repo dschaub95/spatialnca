@@ -23,6 +23,8 @@ class Trainer:
         self.reintv = cfg.reinit_interval
         self.device = cfg.device
         self.pos_init_fn = cfg.pos_init_fn
+        self.intm_loss = cfg.intm_loss
+        self.weight_decay = cfg.weight_decay
 
         self.model = model
         self.step_sampler = StepSampler(cfg.n_steps)
@@ -54,7 +56,9 @@ class Trainer:
 
     def setup_optimizer(self):
         # setup optimizer
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
+        self.optimizer = torch.optim.Adam(
+            self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay
+        )
 
     def train(self, data):
         self.setup_training(data)
@@ -82,15 +86,16 @@ class Trainer:
         n_steps = self.step_sampler.sample()
 
         # rollout
-        h, pos, edge_index = self.model.rollout(
-            x=data.x, pos=data.pos_init, n_steps=n_steps, edge_index=data.edge_index
+        h, pos, edge_index, loss = self.model.rollout(
+            x=data.x,
+            pos=data.pos_init,
+            n_steps=n_steps,
+            edge_index=data.edge_index,
+            loss_fn=self.compute_loss if self.intm_loss else None,
         )
 
-        # compute loss
-        dists_pred = torch.norm(
-            pos[self.edge_index_full[0]] - pos[self.edge_index_full[1]], p=2, dim=-1
-        )
-        loss = F.mse_loss(dists_pred, self.dists_true)
+        # compute loss if not provided
+        loss = self.compute_loss(pos) if loss is None else loss
 
         # backprop
         self.optimizer.zero_grad()
@@ -99,6 +104,13 @@ class Trainer:
         torch.nn.utils.clip_grad_value_(self.model.parameters(), self.clip_value)
         self.optimizer.step()
 
+        return loss
+
+    def compute_loss(self, pos: torch.Tensor):
+        dists_pred = torch.norm(
+            pos[self.edge_index_full[0]] - pos[self.edge_index_full[1]], p=2, dim=-1
+        )
+        loss = F.mse_loss(dists_pred, self.dists_true)
         return loss
 
     def plot_history(self, log_scale=True, title=None, save_path=None):

@@ -51,7 +51,8 @@ class Config(BaseConfig):
     batch_size: int = 1
     reinit_interval: int = np.inf
     pos_init_fn: str = "gaussian"
-    
+    weight_decay: float = 0.0
+
     # model
     emb_dim: int = 32
     hidden_dim: int = 128
@@ -69,7 +70,10 @@ class Config(BaseConfig):
     radius: float | None = None
     bias: bool = True
     act: str = "silu"
+    coord_act: str | None = None
     gpt2_weight_init: bool = False
+    intm_loss: bool = False  # calc loss after each step
+    normalize_diff: bool = False
 
 
 # class ModelConfig(BaseConfig):
