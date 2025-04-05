@@ -3,6 +3,7 @@ import torch.nn.functional as F
 from tqdm.auto import tqdm
 import numpy as np
 import pandas as pd
+import math
 import matplotlib.pyplot as plt
 
 from spatialnca.model import SpatialNCA
@@ -28,6 +29,16 @@ class Trainer:
 
         self.model = model
         self.step_sampler = StepSampler(cfg.n_steps)
+        self.lr_scheduler = (
+            LearningRateScheduler(
+                lr=cfg.lr,
+                warmup_iters=0,
+                lr_decay_iters=cfg.n_epochs,
+                min_lr=cfg.lr / 10,
+            )
+            if cfg.lr_decay
+            else None
+        )
 
     def setup_training(self, data):
         # TODO make this batch aware for later
@@ -69,6 +80,11 @@ class Trainer:
             # reinit node positions regularly
             if epoch % self.reintv == 0:
                 self.init_node_positions(data)
+
+            if self.lr_scheduler is not None:
+                lr = self.lr_scheduler.get_lr(epoch)
+                for param_group in self.optimizer.param_groups:
+                    param_group["lr"] = lr
 
             # train one epoch
             loss = self.train_one_epoch(data)
@@ -178,3 +194,26 @@ class StepSampler:
             return self.n_steps
         else:
             return self.rng.integers(self.min_steps, self.max_steps + 1)
+
+
+class LearningRateScheduler:
+    def __init__(self, lr, warmup_iters, lr_decay_iters, min_lr):
+        self.lr = lr
+        self.warmup_iters = warmup_iters
+        self.lr_decay_iters = lr_decay_iters
+        self.min_lr = min_lr
+
+    def get_lr(self, it):
+        # 1) linear warmup for warmup_iters steps
+        if it < self.warmup_iters:
+            return self.lr * (it + 1) / (self.warmup_iters + 1)
+        # 2) if it > lr_decay_iters, return min learning rate
+        if it > self.lr_decay_iters:
+            return self.min_lr
+        # 3) in between, use cosine decay down to min learning rate
+        decay_ratio = (it - self.warmup_iters) / (
+            self.lr_decay_iters - self.warmup_iters
+        )
+        assert 0 <= decay_ratio <= 1
+        coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))  # coeff ranges 0..1
+        return self.min_lr + coeff * (self.lr - self.min_lr)

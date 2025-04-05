@@ -74,6 +74,7 @@ class Config(BaseConfig):
     gpt2_weight_init: bool = False
     intm_loss: bool = False  # calc loss after each step
     normalize_diff: bool = False
+    lr_decay: bool = True
 
 
 # class ModelConfig(BaseConfig):
