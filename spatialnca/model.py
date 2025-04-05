@@ -131,7 +131,7 @@ class SpatialNCA(nn.Module):
             radius_edge_index = pyg.nn.radius_graph(
                 pos,
                 r=self.radius,
-                loop=False,
+                loop=True,
                 batch=batch,
                 flow="source_to_target",
                 max_num_neighbors=64,
@@ -141,7 +141,7 @@ class SpatialNCA(nn.Module):
         # Compute k-NN graph if k is specified
         if self.knn:
             knn_edge_index = pyg.nn.knn_graph(
-                pos, k=self.knn, loop=False, flow="source_to_target", batch=batch
+                pos, k=self.knn, loop=True, flow="source_to_target", batch=batch
             )
             combined_edge_index.append(knn_edge_index)
 

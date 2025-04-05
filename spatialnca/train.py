@@ -6,7 +6,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from spatialnca.model import SpatialNCA
-from spatialnca.spatial import uniform_point_cloud
+from spatialnca.spatial import uniform_point_cloud, sunflower_points
 from spatialnca.config import Config
 
 
@@ -22,6 +22,7 @@ class Trainer:
         self.clip_value = cfg.clip_value
         self.reintv = cfg.reinit_interval
         self.device = cfg.device
+        self.pos_init_fn = cfg.pos_init_fn
 
         self.model = model
         self.step_sampler = StepSampler(cfg.n_steps)
@@ -112,14 +113,25 @@ class Trainer:
         plt.show()
 
     def init_node_positions(self, data):
-        data.pos_init = 1 * torch.randn(data.pos.shape[0], 2, device=self.device)
-        # data.pos_init = torch.zeros(data.pos.shape[0], 2, device=self.device)
-
-        # data.pos_init = torch.tensor(
-        #     uniform_point_cloud(data.num_nodes, 0.15),
-        #     device=self.device,
-        # )
-
+        max_dist = self.dists_true.max().cpu().item()
+        if self.pos_init_fn == "gaussian":
+            data.pos_init = (max_dist / 2) * torch.randn(
+                data.pos.shape[0], 2, device=self.device
+            )
+        elif self.pos_init_fn == "uniform":
+            # calculate based on number of nodes
+            data.pos_init = torch.tensor(
+                uniform_point_cloud(data.num_nodes, max_dist / 4),
+                device=self.device,
+            )
+        elif self.pos_init_fn == "sunflower":
+            data.pos_init = torch.tensor(
+                sunflower_points(data.num_nodes, median_dist=0.005),
+                device=self.device,
+                dtype=torch.float32,
+            )
+        else:
+            raise ValueError(f"Unknown pos_init_fn: {self.pos_init_fn}")
         # median_dist = self.dists_true.median()
         # data.pos_init = torch.tensor(
         #     uniform_point_cloud(data.num_nodes, median_dist / 2),

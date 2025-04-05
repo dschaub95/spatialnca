@@ -40,6 +40,7 @@ class Config(BaseConfig):
     # data
     n_pcs: int = 50
     emb_key: str | None = "X_pca"  # None to use learnable embedding per node
+    fixed_edge_index: bool = True
 
     # training
     n_epochs: int = 10000
@@ -49,7 +50,8 @@ class Config(BaseConfig):
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
     batch_size: int = 1
     reinit_interval: int = np.inf
-
+    pos_init_fn: str = "gaussian"
+    
     # model
     emb_dim: int = 32
     hidden_dim: int = 128

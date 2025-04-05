@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from scipy.spatial import KDTree
 
 
 def uniform_point_cloud(num_points, radius):
@@ -99,3 +100,29 @@ def random_walk_2d(
         return torch.tensor(current, device=device)
     else:
         return current
+
+
+def sunflower_points(n, radius=1.0, median_dist=None, permute=False):
+    if median_dist is not None:
+        # factor determined empirically
+        # d = 1.787 * (r / sqrt(n))
+        radius = (median_dist / 1.787) * np.sqrt(n)
+
+    golden_angle = np.pi * (3 - np.sqrt(5))
+    i = np.arange(n)
+    r = radius * np.sqrt(i / n)
+    theta = i * golden_angle
+    x = r * np.cos(theta)
+    y = r * np.sin(theta)
+    coords = np.column_stack((x, y))
+    if permute:
+        coords = np.random.permutation(coords)
+    return coords
+
+
+def calc_neighbor_dists(points, k_neighbors):
+    tree = KDTree(points)
+    # Query k-nearest neighbors (excluding self)
+    dists, _ = tree.query(points, k=k_neighbors + 1)  # includes self
+    neighbor_dists = dists[:, 1:]  # exclude self (distance 0)
+    return neighbor_dists
