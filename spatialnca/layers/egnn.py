@@ -1,5 +1,6 @@
 from torch_geometric.nn import MessagePassing
 import torch
+import torch.nn as nn
 from torch_scatter import scatter
 from spatialnca.layers.mlp import SimpleMLP
 from spatialnca.config import Config
@@ -13,7 +14,7 @@ class EGNNLayer(MessagePassing):
     ):
         super().__init__(aggr=cfg.aggr)
         msg_dim = cfg.msg_dim if cfg.msg_dim is not None else cfg.emb_dim
-
+        self.normalize_diff = cfg.normalize_diff
         self.aggr_pos = cfg.aggr_pos
 
         self.mlp_msg = SimpleMLP(
@@ -34,16 +35,39 @@ class EGNNLayer(MessagePassing):
             act=cfg.act,
             **kwargs,
         )
-        self.mlp_pos = SimpleMLP(
-            in_channels=msg_dim,
-            out_channels=1,
-            hidden_channels=cfg.hidden_dim,
-            n_layers=cfg.n_layers_pos,
-            plain_last=True,  # allow for negative values
-            bias=cfg.bias,
-            act=cfg.act,
-            **kwargs,
+        self.mlp_pos = nn.Sequential(
+            SimpleMLP(
+                in_channels=msg_dim,
+                out_channels=1,
+                hidden_channels=cfg.hidden_dim,
+                n_layers=cfg.n_layers_pos,
+                plain_last=True,  # allow for negative values
+                bias=cfg.bias,
+                act=cfg.act,
+                **kwargs,
+            ),
+            nn.Tanh() if cfg.normalize_diff else nn.Identity(),
         )
+
+        # self.mlp_pos = nn.Sequential(
+        #     *[
+        #         nn.Sequential(
+        #             nn.Linear(msg_dim, cfg.hidden_dim),
+        #             activation_resolver(cfg.act),
+        #         )
+        #         for _ in range(cfg.n_layers_pos - 1)
+        #     ],
+        #     nn.Linear(
+        #         msg_dim if cfg.n_layers_pos == 1 else cfg.hidden_dim,
+        #         1,
+        #         bias=False,
+        #     ),
+        #     activation_resolver(cfg.coord_act)
+        #     if cfg.coord_act is not None
+        #     else nn.Identity(),
+        # )
+        # # zero out the last layer at the start
+        # self.mlp_pos[-2].weight.data.zero_()
 
     def forward(self, h, pos, edge_index, edge_attr=None):
         # compute initial feature transfo
@@ -53,6 +77,9 @@ class EGNNLayer(MessagePassing):
     def message(self, h_i, h_j, x_i, x_j, edge_attr):
         diff = x_j - x_i
         dist = torch.norm(diff, p=2, dim=-1, keepdim=True)
+
+        if self.normalize_diff:
+            diff = diff / torch.clamp(dist.detach(), min=1e-6)
 
         msg = torch.cat([h_i, h_j, dist], dim=-1)
         msg = self.mlp_msg(msg)
