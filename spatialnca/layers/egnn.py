@@ -49,26 +49,6 @@ class EGNNLayer(MessagePassing):
             nn.Tanh() if cfg.normalize_diff else nn.Identity(),
         )
 
-        # self.mlp_pos = nn.Sequential(
-        #     *[
-        #         nn.Sequential(
-        #             nn.Linear(msg_dim, cfg.hidden_dim),
-        #             activation_resolver(cfg.act),
-        #         )
-        #         for _ in range(cfg.n_layers_pos - 1)
-        #     ],
-        #     nn.Linear(
-        #         msg_dim if cfg.n_layers_pos == 1 else cfg.hidden_dim,
-        #         1,
-        #         bias=False,
-        #     ),
-        #     activation_resolver(cfg.coord_act)
-        #     if cfg.coord_act is not None
-        #     else nn.Identity(),
-        # )
-        # # zero out the last layer at the start
-        # self.mlp_pos[-2].weight.data.zero_()
-
     def forward(self, h, pos, edge_index, edge_attr=None):
         # compute initial feature transfo
         out = self.propagate(edge_index, h=h, x=pos, edge_attr=edge_attr)
