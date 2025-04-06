@@ -70,11 +70,11 @@ class Config(BaseConfig):
     radius: float | None = None
     bias: bool = True
     act: str = "silu"
-    coord_act: str | None = None
     gpt2_weight_init: bool = False
     intm_loss: bool = False  # calc loss after each step
     normalize_diff: bool = False
     lr_decay: bool = True
+    max_coord_upd_norm: float | None = None
 
 
 # class ModelConfig(BaseConfig):

@@ -16,6 +16,7 @@ class EGNNLayer(MessagePassing):
         msg_dim = cfg.msg_dim if cfg.msg_dim is not None else cfg.emb_dim
         self.normalize_diff = cfg.normalize_diff
         self.aggr_pos = cfg.aggr_pos
+        self.max_scale = cfg.max_coord_upd_norm
 
         self.mlp_msg = SimpleMLP(
             in_channels=cfg.emb_dim * 2 + 1,
@@ -67,7 +68,12 @@ class EGNNLayer(MessagePassing):
         # intuitively determines in which direction to move
         # might be imporvable by using the message and the aggregated message
         # to get a full picture before determinign waht do focus on
-        diff_scaled = diff * self.mlp_pos(msg)
+        if self.max_scale is None:
+            diff_scaler = self.mlp_pos(msg)
+        else:
+            c = (1 / torch.clamp(dist, min=1e-6)) * self.max_scale
+            diff_scaler = smooth_saturating(self.mlp_pos(msg), c)
+        diff_scaled = diff * diff_scaler
 
         return msg, diff_scaled
 
@@ -82,3 +88,7 @@ class EGNNLayer(MessagePassing):
         h_upd = torch.cat([h, h_aggr], dim=-1)
         h_upd = self.mlp_upd(h_upd)
         return h_upd, pos_upd
+
+
+def smooth_saturating(x: torch.Tensor, c: float | torch.Tensor):
+    return c * torch.tanh(x / c)
