@@ -6,18 +6,23 @@ from sklearn.preprocessing import StandardScaler
 import torch_geometric as pyg
 
 from spatialnca.config import Config
-from spatialnca.utils import construct_graph, random_k_regular_graph
+from spatialnca.utils import construct_graph
 
 
-def prepare_data(adata, cfg: Config, construct_edge_index=True):
+def prepare_data(adata, cfg: Config, construct_edge_index=True, verbose=True):
     preprocessor = PreProcessor(cfg.n_pcs)
     preprocessor.fit_transform(adata)
     data = adata_to_pyg(adata, emb_key=cfg.emb_key)
 
     # for debugging preconstruct edge index
     if construct_edge_index:
-        data.edge_index = construct_graph(data.pos, knn=cfg.knn)
-    # data.edge_index = random_k_regular_graph(data.num_nodes, cfg.knn)
+        data.edge_index = construct_graph(
+            data.pos,
+            knn=cfg.knn,
+            radius=cfg.radius,
+            complete=cfg.complete,
+            verbose=verbose,
+        )
     return data
 
 

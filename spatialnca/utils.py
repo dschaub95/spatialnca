@@ -69,8 +69,12 @@ def random_k_regular_graph(num_nodes, k, seed=42, device="cpu"):
     return edge_index
 
 
-def construct_graph(pos, radius=None, knn=None, batch=None):
-    if radius is not None:
+def construct_graph(
+    pos: torch.Tensor, radius=None, knn=None, complete=False, batch=None, verbose=False
+):
+    if complete:
+        edge_index = complete_graph(pos.shape[0], batch=batch, device=pos.device)
+    elif radius is not None:
         edge_index = pyg.nn.radius_graph(
             pos, r=radius, loop=True, flow="source_to_target", batch=batch
         )
@@ -80,6 +84,10 @@ def construct_graph(pos, radius=None, knn=None, batch=None):
         )
     else:
         raise ValueError("Either radius or knn must be specified")
+    if verbose:
+        print(
+            f"Constructed graph with {pos.shape[0]} nodes and {edge_index.shape[1]} edges"
+        )
     return edge_index
 
 
@@ -140,3 +148,16 @@ def spatial_scatter(adata, color=None, pos_key="spatial", cmap=None):
     ax.set_xlabel("X-coordinate")
     ax.set_ylabel("Y-coordinate")
     plt.show()
+
+
+def complete_graph(num_nodes, batch=None, device=None):
+    if batch is None:
+        edge_index = torch.cartesian_prod(
+            torch.arange(num_nodes), torch.arange(num_nodes)
+        ).T
+    else:
+        # TODO implement batch
+        raise NotImplementedError("Batch not implemented yet")
+    if device is not None:
+        edge_index = edge_index.to(device)
+    return edge_index

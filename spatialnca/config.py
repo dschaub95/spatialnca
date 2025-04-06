@@ -68,6 +68,7 @@ class Config(BaseConfig):
     add_init: bool = False
     knn: int = 10
     radius: float | None = None
+    complete: bool = False
     bias: bool = True
     act: str = "silu"
     gpt2_weight_init: bool = False
@@ -75,6 +76,7 @@ class Config(BaseConfig):
     normalize_diff: bool = False
     lr_decay: bool = True
     max_coord_upd_norm: float | None = None
+    sigma_init: float | None = None
 
 
 # class ModelConfig(BaseConfig):
