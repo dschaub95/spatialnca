@@ -20,6 +20,7 @@ def prepare_data(adata, cfg: Config, construct_edge_index=True, verbose=True):
             data.pos,
             knn=cfg.knn,
             radius=cfg.radius,
+            delaunay=cfg.delaunay,
             complete=cfg.complete,
             verbose=verbose,
         )

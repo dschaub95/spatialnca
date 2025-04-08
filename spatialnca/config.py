@@ -68,6 +68,7 @@ class Config(BaseConfig):
     add_init: bool = False
     knn: int = 10
     radius: float | None = None
+    delaunay: bool = False
     complete: bool = False
     bias: bool = True
     act: str = "silu"

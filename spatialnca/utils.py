@@ -8,6 +8,10 @@ import random
 import seaborn as sns
 import scanpy as sc
 
+from torch_geometric.transforms.delaunay import Delaunay
+from torch_geometric.data import Data
+from torch_geometric.utils import to_undirected
+
 
 def grid2d(shape=(10, 10)):
     x = np.linspace(0, 1, shape[0])
@@ -70,20 +74,46 @@ def random_k_regular_graph(num_nodes, k, seed=42, device="cpu"):
 
 
 def construct_graph(
-    pos: torch.Tensor, radius=None, knn=None, complete=False, batch=None, verbose=False
+    pos: torch.Tensor,
+    radius=None,
+    knn=None,
+    complete=False,
+    delaunay=False,
+    batch=None,
+    verbose=False,
 ):
     if complete:
         edge_index = complete_graph(pos.shape[0], batch=batch, device=pos.device)
-    elif radius is not None:
-        edge_index = pyg.nn.radius_graph(
-            pos, r=radius, loop=True, flow="source_to_target", batch=batch
-        )
-    elif knn is not None:
-        edge_index = pyg.nn.knn_graph(
-            pos, k=knn, loop=True, flow="source_to_target", batch=batch
-        )
     else:
-        raise ValueError("Either radius or knn must be specified")
+        assert any(
+            [radius, knn, delaunay]
+        ), "At least one of radius, knn, or delaunay must be provided"
+        edge_indices = []
+        if radius is not None:
+            edge_index = pyg.nn.radius_graph(
+                pos, r=radius, loop=True, flow="source_to_target", batch=batch
+            )
+            edge_indices.append(edge_index)
+        if knn is not None:
+            edge_index = pyg.nn.knn_graph(
+                pos, k=knn, loop=True, flow="source_to_target", batch=batch
+            )
+            edge_indices.append(edge_index)
+        if delaunay:
+            face = Delaunay()(Data(pos=pos.detach())).face
+            row = torch.cat([face[0], face[1], face[2]])
+            col = torch.cat([face[1], face[2], face[0]])
+            edge_index = torch.stack([row, col], dim=0)
+            edge_index = to_undirected(edge_index)
+            edge_indices.append(edge_index)
+
+        # remove duplicate edges
+        if len(edge_indices) > 1:
+            edge_index = torch.cat(edge_indices, dim=1)
+            edge_index = torch.unique(edge_index, dim=1)
+        else:
+            edge_index = edge_indices[0]
+
     if verbose:
         print(
             f"Constructed graph with {pos.shape[0]} nodes and {edge_index.shape[1]} edges"

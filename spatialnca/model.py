@@ -1,10 +1,10 @@
 import torch
 import torch.nn as nn
-import torch_geometric as pyg
 
 from spatialnca.layers.mlp import SimpleMLP
 from spatialnca.layers.egnn import EGNNLayer
 from spatialnca.config import Config
+from spatialnca.utils import construct_graph
 
 
 class SpatialNCA(nn.Module):
@@ -19,6 +19,7 @@ class SpatialNCA(nn.Module):
         self.emb_dim = cfg.emb_dim
         self.knn = cfg.knn
         self.radius = cfg.radius
+        self.delaunay = cfg.delaunay
         self.add_init = cfg.add_init
         self.skip_connections = cfg.skip_connections
         self.bounds = cfg.bounds
@@ -117,38 +118,14 @@ class SpatialNCA(nn.Module):
         return h, pos, edge_index
 
     def update_edge_index(self, pos, edge_index=None, batch=None):
-        # Ensure at least one of radius or k-NN is specified
-        assert self.radius or self.knn, "Either radius or knn must be specified"
-
-        combined_edge_index = []
-
-        # Compute radius graph if radius is specified
-        if self.radius:
-            radius_edge_index = pyg.nn.radius_graph(
-                pos,
-                r=self.radius,
-                loop=True,
-                batch=batch,
-                flow="source_to_target",
-                max_num_neighbors=64,
-            )
-            combined_edge_index.append(radius_edge_index)
-
-        # Compute k-NN graph if k is specified
-        if self.knn:
-            knn_edge_index = pyg.nn.knn_graph(
-                pos, k=self.knn, loop=True, flow="source_to_target", batch=batch
-            )
-            combined_edge_index.append(knn_edge_index)
-
-        if len(combined_edge_index) > 1:
-            combined_edge_index = torch.cat(combined_edge_index, dim=1)
-            # Remove duplicate edges
-            combined_edge_index = torch.unique(combined_edge_index, dim=1)
-        else:
-            # Use the single available edge index
-            combined_edge_index = combined_edge_index[0]
-        return combined_edge_index
+        edge_index = construct_graph(
+            pos,
+            radius=self.radius,
+            knn=self.knn,
+            delaunay=self.delaunay,
+            batch=batch,
+        )
+        return edge_index
 
     def init_edge_index(self, pos, **kwargs):
         return self.update_edge_index(pos, **kwargs)
