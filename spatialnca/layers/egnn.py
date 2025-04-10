@@ -83,7 +83,9 @@ class EGNNLayer(MessagePassing):
             c = (1 / torch.clamp(dist, min=1e-6)) * self.max_scale
             diff_scaler = smooth_saturating(self.mlp_pos(msg), c)
         diff_scaled = diff * diff_scaler
+
         # further scale by distance kernel if specified
+        # to ensure far away nodes have limited impact
         diff_scaled = diff_scaled * dist_kernel if self.kernel else diff_scaled
 
         return msg, diff_scaled
