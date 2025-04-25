@@ -40,7 +40,9 @@ def grid2d_graph(shape=(10, 10), radius=0.15, self_loops=False):
 
 def generate_grid_adata(shape=(10, 10)):
     coords = grid2d(shape)
-    adata = sc.AnnData(X=np.zeros((coords.shape[0], 100)), obsm={"spatial": coords})
+    adata = sc.AnnData(
+        X=np.random.randint(0, 1000, (coords.shape[0], 100)), obsm={"spatial": coords}
+    )
     return adata
 
 
@@ -132,7 +134,8 @@ def seed_everything(seed):
     # torch.use_deterministic_algorithms(True)
 
 
-def spatial_scatter(adata, color=None, pos_key="spatial", cmap=None):
+def spatial_scatter(adata, color=None, pos_key="spatial", title=None, cmap=None):
+    sns.set_theme(style="ticks", context="paper")
     x, y = adata.obsm[pos_key].T
 
     if color is not None:
@@ -177,6 +180,9 @@ def spatial_scatter(adata, color=None, pos_key="spatial", cmap=None):
     # fig.subplots_adjust(left=0.1, right=0.85, top=0.9, bottom=0.1)  # Fine-tune padding
     ax.set_xlabel("X-coordinate")
     ax.set_ylabel("Y-coordinate")
+
+    if title is not None:
+        ax.set_title(title)
     plt.show()
 
 

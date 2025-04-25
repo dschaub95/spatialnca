@@ -51,6 +51,7 @@ class Config(BaseConfig):
     batch_size: int = 1
     reinit_interval: int = np.inf
     pos_init_fn: str = "gaussian"
+    pos_init_kwargs: dict | None = None
     weight_decay: float = 0.0
 
     # model

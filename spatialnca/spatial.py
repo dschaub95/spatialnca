@@ -1,6 +1,8 @@
 import numpy as np
 import torch
+from tqdm.auto import tqdm
 from scipy.spatial import KDTree
+from typing import Optional
 
 
 def uniform_point_cloud(num_points, radius):
@@ -20,7 +22,7 @@ def uniform_point_cloud(num_points, radius):
 
 
 # random walk transformation
-def random_walk_2d(
+def random_walk(
     points,
     num_steps,
     max_displacement,
@@ -28,8 +30,11 @@ def random_walk_2d(
     radius=None,
     xlim=None,
     ylim=None,
+    bounds: Optional[list[tuple[float, float]]] = None,
     seed=42,
     device=None,
+    progress_bar=True,
+    return_intermediate=False,
 ):
     # handle torch tensors
     if isinstance(points, torch.Tensor):
@@ -38,7 +43,7 @@ def random_walk_2d(
         points = points.detach().cpu().numpy().astype(np.float32)
     else:
         is_torch = False
-        points = np.asarray(points, dtype=float)
+        points = np.asarray(points, dtype=float).copy()
 
     # check the input parameters
     if max_displacement < min_displacement:
@@ -56,50 +61,45 @@ def random_walk_2d(
     ):
         raise ValueError("Some points are outside the y-axis bounds.")
 
+    if xlim is not None or ylim is not None:
+        assert bounds is None, "bounds and xlim/ylim cannot both be provided"
+        assert points.shape[1] == 2, "xlim and ylim are only supported for 2D points"
+        bounds = [xlim, ylim]
+
     rng = np.random.default_rng(seed)
 
-    current = points.copy()
+    history = []
 
-    for _ in range(num_steps):
-        # Start with all points needing updates
-        points_to_update = np.arange(len(current))
+    for _ in tqdm(range(num_steps), disable=not progress_bar):
+        # isotropic directions
+        noise_direction = rng.normal(0, 1, size=(len(points), points.shape[1]))
+        noise_direction = noise_direction / np.linalg.norm(
+            noise_direction, axis=1, keepdims=True
+        )
+        noise_length = rng.uniform(min_displacement, max_displacement, size=len(points))
+        noise_vector = noise_length[:, np.newaxis] * noise_direction
+        points += noise_vector
 
-        while len(points_to_update) > 0:
-            angles = rng.uniform(0, 2 * np.pi, size=len(points_to_update))
-            disps = rng.uniform(
-                min_displacement, max_displacement, size=len(points_to_update)
+        if radius is not None:
+            # Optional: project points back into the radius
+            norms = np.linalg.norm(points, axis=1)
+            mask = norms > radius
+            points[mask] *= radius / norms[mask, np.newaxis]
+
+        if bounds is not None:
+            for i, lim in enumerate(bounds):
+                if lim is not None:
+                    points[:, i] = np.clip(points[:, i], lim[0], lim[1])
+
+        if return_intermediate:
+            history.append(
+                torch.from_numpy(points).to(device) if is_torch else points.copy()
             )
-            moves = disps[:, np.newaxis] * np.column_stack(
-                (np.cos(angles), np.sin(angles))
-            )
-            new_positions = current[points_to_update] + moves
 
-            if radius is not None:
-                valid = np.linalg.norm(new_positions, axis=1) <= radius
-                # Update the valid points
-                current[points_to_update[valid]] = new_positions[valid]
-                # Keep trying for the invalid points
-                points_to_update = points_to_update[~valid]
-            elif xlim is not None or ylim is not None:
-                # check if the new positions are within the bounds
-                valid = (
-                    (new_positions[:, 0] >= xlim[0])
-                    & (new_positions[:, 0] <= xlim[1])
-                    & (new_positions[:, 1] >= ylim[0])
-                    & (new_positions[:, 1] <= ylim[1])
-                )
-                # Update the valid points
-                current[points_to_update[valid]] = new_positions[valid]
-                # Keep trying for the invalid points
-                points_to_update = points_to_update[~valid]
-            else:
-                current[points_to_update] = new_positions
-                points_to_update = np.empty(0, dtype=int)
-
-    if is_torch:
-        return torch.tensor(current, device=device)
+    if not return_intermediate:
+        return torch.from_numpy(points).to(device) if is_torch else points
     else:
-        return current
+        return history
 
 
 def sunflower_points(n, radius=1.0, median_dist=None, permute=False):

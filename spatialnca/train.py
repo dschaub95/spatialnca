@@ -7,8 +7,9 @@ import math
 import matplotlib.pyplot as plt
 
 from spatialnca.model import SpatialNCA
-from spatialnca.spatial import uniform_point_cloud, sunflower_points
+from spatialnca.spatial import uniform_point_cloud, sunflower_points, random_walk
 from spatialnca.config import Config
+from spatialnca.utils import construct_graph
 
 
 class Trainer:
@@ -24,6 +25,7 @@ class Trainer:
         self.reintv = cfg.reinit_interval
         self.device = cfg.device
         self.pos_init_fn = cfg.pos_init_fn
+        self.pos_init_kwargs = cfg.pos_init_kwargs if cfg.pos_init_kwargs else {}
         self.intm_loss = cfg.intm_loss
         self.weight_decay = cfg.weight_decay
 
@@ -132,6 +134,8 @@ class Trainer:
     def plot_history(self, log_scale=True, title=None, save_path=None):
         df = pd.DataFrame(self.history)
         plt.plot(df["train_loss"])
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
         if log_scale:
             plt.yscale("log")
         if title is not None:
@@ -158,6 +162,29 @@ class Trainer:
                 device=self.device,
                 dtype=torch.float32,
             )
+        elif self.pos_init_fn == "random_walk":
+            # calc median dist
+            if "max_displacement" in self.pos_init_kwargs:
+                max_dist = self.pos_init_kwargs["max_displacement"]
+            else:
+                edge_index = construct_graph(data.pos, delaunay=True)
+                dists = torch.norm(
+                    data.pos[edge_index[0]] - data.pos[edge_index[1]], p=2, dim=-1
+                )
+                max_dist = dists.median().detach().cpu().item()
+            data.pos_init = random_walk(
+                data.pos,
+                num_steps=self.pos_init_kwargs.get("num_steps", 1),
+                max_displacement=max_dist,
+                progress_bar=False,
+            )
+
+            x, y = data.pos_init.detach().cpu().numpy().T
+            plt.figure(figsize=(5, 5))
+            plt.scatter(x, y, s=5)
+            plt.gca().set_aspect("equal")
+            plt.title("Random walk initialization")
+            plt.show()
         else:
             raise ValueError(f"Unknown pos_init_fn: {self.pos_init_fn}")
         # median_dist = self.dists_true.median()
