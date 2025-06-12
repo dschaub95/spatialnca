@@ -10,6 +10,10 @@ A PyTorch implementation of a cellular automata model that learns to reassemble 
 
 ## Installation
 
+Create a new conda environment and install the dependencies.
+
+
+Then install the package via pip:
 ```bash
 pip install -e .
 ```
