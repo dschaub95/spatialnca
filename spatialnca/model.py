@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from tqdm.auto import tqdm
 
 from spatialnca.layers.mlp import SimpleMLP
 from spatialnca.layers.egnn import EGNNLayer
@@ -63,7 +64,17 @@ class SpatialNCA(nn.Module):
         pos = pos + pos_update
         return h, pos
 
-    def rollout(self, x, pos, n_steps, h=None, edge_index=None, loss_fn=None):
+    def rollout(
+        self,
+        x,
+        pos,
+        n_steps,
+        h=None,
+        edge_index=None,
+        loss_fn=None,
+        return_evolution=False,
+        prog_bar=False,
+    ):
         assert n_steps > 0, "n_steps must be greater than 0"
 
         # create edge index if not provided, otherwise keep it fixed
@@ -86,14 +97,22 @@ class SpatialNCA(nn.Module):
 
         # run for multiple steps
         loss = 0 if loss_fn is not None else None
-        for i in range(n_steps):
+        # track results per step if return_evolution is True
+        states = [save_state(h, pos, edge_index, loss, 0)]
+        for i in tqdm(range(n_steps), total=n_steps, desc="Rollout", disable=not prog_bar):
             h, pos, edge_index = self.step(h, pos, edge_index)
 
             # compute mean intermediate loss (optional)
             if loss_fn is not None:
                 loss += loss_fn(pos) * (i + 1) / n_steps
 
-        return h, pos, edge_index, loss
+            if return_evolution:
+                states.append(save_state(h, pos, edge_index, loss, i + 1))
+
+        if return_evolution:
+            return states
+        else:
+            return h, pos, edge_index, loss
 
     def step(self, h, pos, edge_index):
         h, pos_new = self.forward(h, pos, edge_index, h_init=self.h_init)
@@ -140,3 +159,13 @@ class SpatialNCA(nn.Module):
         """
         n_params = sum(p.numel() for p in self.parameters())
         return n_params
+
+
+def save_state(h, pos, edge_index, loss, step):
+    return {
+        "h": h.detach().cpu(),
+        "pos": pos.detach().cpu(),
+        "edge_index": edge_index.detach().cpu(),
+        "loss": loss.detach().cpu() if loss is not None else None,
+        "step": step,
+    }
