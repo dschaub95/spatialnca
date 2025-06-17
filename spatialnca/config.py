@@ -78,7 +78,9 @@ class Config(BaseConfig):
     normalize_diff: bool = False
     lr_decay: bool = True
     max_coord_upd_norm: float | None = None
-    sigma_init: float | None = None
+    kernel_fn: str | None = None
+    kernel_kwargs: dict | None = None
+    scale_by_dist: bool = False
 
 
 # class ModelConfig(BaseConfig):
