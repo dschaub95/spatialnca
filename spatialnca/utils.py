@@ -7,6 +7,9 @@ import matplotlib.pyplot as plt
 import random
 import seaborn as sns
 import scanpy as sc
+from matplotlib.animation import FuncAnimation
+import matplotlib.cm as cm
+from matplotlib.animation import FFMpegWriter
 
 from torch_geometric.transforms.delaunay import Delaunay
 from torch_geometric.data import Data
@@ -87,9 +90,9 @@ def construct_graph(
     if complete:
         edge_index = complete_graph(pos.shape[0], batch=batch, device=pos.device)
     else:
-        assert any(
-            [radius, knn, delaunay]
-        ), "At least one of radius, knn, or delaunay must be provided"
+        assert any([radius, knn, delaunay]), (
+            "At least one of radius, knn, or delaunay must be provided"
+        )
         edge_indices = []
         if radius is not None:
             edge_index = pyg.nn.radius_graph(
@@ -197,3 +200,76 @@ def complete_graph(num_nodes, batch=None, device=None):
     if device is not None:
         edge_index = edge_index.to(device)
     return edge_index
+
+
+def set_color(adata, obs_key):
+    if obs_key is not None:
+        obs_data = adata.obs[obs_key]
+        unique_cats = obs_data.unique()
+        n_cats = len(unique_cats)
+
+        palette = sns.color_palette(
+            "tab20" if n_cats > 10 else "tab10", len(unique_cats)
+        )
+        color_mapping = {category: palette[i] for i, category in enumerate(unique_cats)}
+
+        colors = [color_mapping[e] for e in obs_data.values]
+    else:
+        colors = "blue"
+    return colors
+
+
+def animate_trajectory(
+    positions: np.ndarray,
+    interpolation_steps: int = 30,
+    out_path: str = "figures/positions.mp4",
+    fps: int = 30,
+    colors: np.ndarray = None,
+):
+    """
+    positions           (T, N, 2) array from your rollout
+    interpolation_steps frames to insert between consecutive rollout steps
+    out_path            write-to path for the GIF
+    fps                 playback speed
+    """
+    T, N, _ = positions.shape
+    sns.set_theme(style="ticks", context="paper")
+
+    # -------- linear interpolation --------
+    frames = []
+    for t in range(T - 1):
+        start, end = positions[t], positions[t + 1]
+        for alpha in np.linspace(0, 1, interpolation_steps, endpoint=False):
+            frames.append((1 - alpha) * start + alpha * end)
+    frames.append(positions[-1])
+    frames = np.asarray(frames)
+
+    # -------- animation --------
+    if colors is None:
+        colors = cm.nipy_spectral(np.linspace(0, 1, N))
+
+    fig, ax = plt.subplots(figsize=(10, 10), dpi=300)
+    scat = ax.scatter(  # CHANGED ↓
+        frames[0][:, 0],
+        frames[0][:, 1],  #  start with first frame
+        c=colors,
+        s=5,
+    )
+    ax.set_xlim(positions[..., 0].min(), positions[..., 0].max())
+    ax.set_ylim(positions[..., 1].min(), positions[..., 1].max())
+    ax.set_aspect("equal")
+
+    def init():
+        scat.set_offsets(frames[0])
+        return (scat,)
+
+    def update(f):
+        scat.set_offsets(f)
+        return (scat,)
+
+    anim = FuncAnimation(
+        fig, update, frames=frames, init_func=init, blit=True, interval=1000 / fps
+    )
+    # anim.save(out_path, writer=PillowWriter(fps=fps))
+    anim.save(out_path, writer=FFMpegWriter(fps=fps))
+    plt.close(fig)
