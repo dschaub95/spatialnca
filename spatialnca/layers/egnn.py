@@ -55,7 +55,8 @@ class EGNNLayer(MessagePassing):
         if cfg.kernel_fn is not None:
             if cfg.kernel_fn == "gaussian":
                 self.kernel = GaussianKernel(
-                    sigma_init=cfg.kernel_kwargs.get("sigma_init", 0.0)
+                    sigma=cfg.kernel_kwargs.get("sigma", 0.0),
+                    learnable=cfg.kernel_kwargs.get("learnable", True),
                 )
             elif cfg.kernel_fn == "sigmoid":
                 self.kernel = SigmoidKernel(
@@ -127,11 +128,12 @@ def smooth_saturating(x: torch.Tensor, c: float | torch.Tensor):
 
 
 class GaussianKernel(nn.Module):
-    def __init__(self, sigma_init=0.0):
+    def __init__(self, sigma=0.0, learnable: bool = True):
         super().__init__()
-        self.sigma = torch.nn.Parameter(torch.tensor(sigma_init))
+        self.sigma = nn.Parameter(torch.ones(1) * sigma) if learnable else sigma
 
     def forward(self, x):
+        # https://www.desmos.com/calculator/olo9fetyvt
         return torch.exp(-self.sigma * x**2)
 
 
@@ -142,6 +144,6 @@ class SigmoidKernel(nn.Module):
         self.d2 = nn.Parameter(torch.ones(1) * d2) if learnable else d2
 
     def forward(self, dist):
-        # https://www.desmos.com/calculator/mkp3ewfmiu
+        # https://www.desmos.com/calculator/jfbemb23hc
         exp = self.d2 * (dist - self.d1)
         return torch.sigmoid(-exp)
