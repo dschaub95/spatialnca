@@ -126,7 +126,7 @@ def construct_graph(
     return edge_index
 
 
-def seed_everything(seed):
+def seed_everything(seed, force_deterministic=False):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -134,7 +134,8 @@ def seed_everything(seed):
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
-    # torch.use_deterministic_algorithms(True)
+    if force_deterministic:
+        torch.use_deterministic_algorithms(True, warn_only=True)
 
 
 def spatial_scatter(adata, color=None, pos_key="spatial", title=None, cmap=None):
