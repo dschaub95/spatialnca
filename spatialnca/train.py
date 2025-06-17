@@ -122,6 +122,15 @@ class Trainer:
         torch.nn.utils.clip_grad_value_(self.model.parameters(), self.clip_value)
         self.optimizer.step()
 
+        # check for NaN loss
+        assert not pd.isna(loss.item()), (
+            f"Loss is NaN:\n"
+            f"loss: {loss}\n"
+            f"pos: {pos}\n"
+            f"edge_index: {edge_index}\n"
+            f"data.pos_init: {data.pos_init}\n"
+            f"data.pos: {data.pos}"
+        )
         return loss
 
     def compute_loss(self, pos: torch.Tensor):
@@ -147,7 +156,7 @@ class Trainer:
     def init_node_positions(self, data):
         max_dist = self.dists_true.max().cpu().item()
         if self.pos_init_fn == "gaussian":
-            data.pos_init = (max_dist / 2) * torch.randn(
+            data.pos_init = self.pos_init_kwargs.get("scale", 1) * torch.randn(
                 data.pos.shape[0], 2, device=self.device
             )
         elif self.pos_init_fn == "uniform":
