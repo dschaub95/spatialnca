@@ -60,6 +60,7 @@ class Config(BaseConfig):
     n_layers_msg: int = 2
     n_layers_upd: int = 2
     n_layers_pos: int = 2
+    use_attn: bool = False
     aggr: str = "sum"
     aggr_pos: str = "mean"
     msg_dim: int | None = None

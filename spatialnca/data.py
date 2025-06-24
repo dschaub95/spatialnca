@@ -1,4 +1,3 @@
-import nichepca as npc
 import scanpy as sc
 import numpy as np
 from sklearn.decomposition import PCA
@@ -6,7 +5,7 @@ from sklearn.preprocessing import StandardScaler
 import torch_geometric as pyg
 
 from spatialnca.config import Config
-from spatialnca.utils import construct_graph
+from spatialnca.utils import construct_graph, to_numpy, to_torch
 
 
 def prepare_data(adata, cfg: Config, construct_edge_index=True, verbose=True):
@@ -34,7 +33,7 @@ class PreProcessor:
 
     def fit(self, adata):
         X_orig = adata.X.copy()
-        adata.X = npc.utils.to_numpy(adata.X)
+        adata.X = to_numpy(adata.X)
 
         # calc median
         self.median = np.median(adata.X.sum(axis=1), axis=0)
@@ -54,7 +53,7 @@ class PreProcessor:
 
     def transform(self, adata):
         X_orig = adata.X.copy()
-        adata.X = npc.utils.to_numpy(adata.X)
+        adata.X = to_numpy(adata.X)
 
         # run transformations
         sc.pp.normalize_total(adata, target_sum=self.median)
@@ -75,10 +74,10 @@ def adata_to_pyg(adata, emb_key="X_pca", pos_key="spatial"):
     if emb_key is None:
         x = None
     elif emb_key == "X":
-        x = npc.utils.to_torch(adata.X).float()
+        x = to_torch(adata.X).float()
     else:
-        x = npc.utils.to_torch(adata.obsm[emb_key]).float()
+        x = to_torch(adata.obsm[emb_key]).float()
 
-    pos = npc.utils.to_torch(adata.obsm[pos_key]).float()
+    pos = to_torch(adata.obsm[pos_key]).float()
     data = pyg.data.Data(x=x, pos=pos, pos_init=None)
     return data

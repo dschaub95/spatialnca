@@ -1,4 +1,5 @@
 from torch_geometric.nn import MessagePassing
+import torch_geometric as pyg
 import torch
 import torch.nn as nn
 from torch_scatter import scatter
@@ -18,10 +19,11 @@ class EGNNLayer(MessagePassing):
         self.aggr_pos = cfg.aggr_pos
         self.max_scale = cfg.max_coord_upd_norm
         self.scale_by_dist = cfg.scale_by_dist
+        self.use_attn = cfg.use_attn
 
         self.mlp_msg = SimpleMLP(
-            in_channels=cfg.emb_dim * 2 + 1,
-            out_channels=msg_dim,
+            in_channels=cfg.emb_dim * 2 + 1,  # + 1 for the distance input
+            out_channels=msg_dim + 1 if cfg.use_attn else msg_dim,
             hidden_channels=cfg.hidden_dim,
             n_layers=cfg.n_layers_msg,
             bias=cfg.bias,
@@ -72,7 +74,7 @@ class EGNNLayer(MessagePassing):
         out = self.propagate(edge_index, h=h, x=pos, edge_attr=edge_attr)
         return out
 
-    def message(self, h_i, h_j, x_i, x_j, edge_attr):
+    def message(self, h_i, h_j, x_i, x_j, edge_attr, index, ptr, size_i):
         diff = x_j - x_i
         # diff.shape = (num_edges, 2)
 
@@ -81,11 +83,12 @@ class EGNNLayer(MessagePassing):
         dist_kernel = self.kernel(dist) if self.kernel else dist
 
         msg = torch.cat([h_i, h_j, dist_kernel], dim=-1)
+        msg = self.mlp_msg(msg)
 
-        # scale message by distance kernel if specified to effectively use a soft radius
-        msg = (
-            self.mlp_msg(msg) * dist_kernel if self.scale_by_dist else self.mlp_msg(msg)
-        )
+        if self.use_attn:
+            alpha = msg[:, -1:]
+            alpha = pyg.utils.softmax(alpha, index, ptr, size_i)
+            msg = msg[:, :-1]
 
         # intuitively determines in which direction to move
         # might be improvable by using the message and the aggregated message
@@ -106,6 +109,12 @@ class EGNNLayer(MessagePassing):
         # further scale by distance kernel if specified
         # to ensure far away nodes have limited impact
         diff_scaled = diff_scaled * dist_kernel if self.scale_by_dist else diff_scaled
+
+        # scale message by distance kernel if specified to effectively use a soft radius
+        msg = msg * dist_kernel if self.scale_by_dist else msg
+
+        # scale message by attention if specified
+        msg = msg * alpha if self.use_attn else msg
 
         return msg, diff_scaled
 

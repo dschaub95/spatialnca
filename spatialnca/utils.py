@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import random
 import seaborn as sns
 import scanpy as sc
+import scipy.sparse as sp
 from matplotlib.animation import FuncAnimation
 import matplotlib.cm as cm
 from matplotlib.animation import FFMpegWriter
@@ -274,3 +275,21 @@ def animate_trajectory(
     # anim.save(out_path, writer=PillowWriter(fps=fps))
     anim.save(out_path, writer=FFMpegWriter(fps=fps))
     plt.close(fig)
+
+
+def to_numpy(X: torch.Tensor | np.ndarray | sp.spmatrix | list):
+    if isinstance(X, torch.Tensor):
+        return X.detach().cpu().numpy()
+    elif sp.issparse(X):
+        return X.toarray()
+    else:
+        return np.asarray(X)
+
+
+def to_torch(X: torch.Tensor | np.ndarray | sp.spmatrix | list):
+    if isinstance(X, torch.Tensor):
+        return X
+    elif sp.issparse(X):
+        return torch.from_numpy(X.toarray())
+    else:
+        return torch.from_numpy(np.asarray(X))
