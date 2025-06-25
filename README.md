@@ -10,11 +10,16 @@ A PyTorch implementation of a cellular automata model that learns to reassemble 
 
 ## Installation
 
-Create a new conda environment and install the dependencies.
+We use uv for dependency management:
 
-
-Then install the package via pip:
 ```bash
-pip install -e .
+pip install uv
 ```
+
+Now you can create the virtual environment by running the setup script:
+```bash
+bash setup_venv.sh
+```
+
+
 
