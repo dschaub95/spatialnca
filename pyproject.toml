@@ -26,6 +26,3 @@ exclude = ["data*", "wandb*", "figures*", "notebooks*", "sweeps*", "checkpoints*
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
-
-[tool.uv]
-python-preference = "only-managed"
