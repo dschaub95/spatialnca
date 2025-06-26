@@ -1,3 +1,6 @@
+unset VIRTUAL_ENV
+export UV_LINK_MODE=symlink
+
 uv venv --python 3.12
 source .venv/bin/activate
 uv sync
