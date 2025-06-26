@@ -5,3 +5,4 @@ figures/*
 checkpoints/*
 .venv/*
 wandb/*
+*.egg-info/*
