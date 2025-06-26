@@ -38,6 +38,7 @@ class Config(BaseConfig):
     seed: int = 42
 
     # data
+    path: str = "data/Zhuang-ABCA-3.003_slice.h5ad"
     n_pcs: int = 50
     emb_key: str | None = "X_pca"  # None to use learnable embedding per node
     fixed_edge_index: bool = True

@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import random
 import seaborn as sns
 import scanpy as sc
+import pandas as pd
 import scipy.sparse as sp
 from matplotlib.animation import FuncAnimation
 import matplotlib.cm as cm
@@ -293,3 +294,12 @@ def to_torch(X: torch.Tensor | np.ndarray | sp.spmatrix | list):
         return torch.from_numpy(X.toarray())
     else:
         return torch.from_numpy(np.asarray(X))
+
+
+def isna(x):
+    if isinstance(x, torch.Tensor):
+        return torch.isnan(x).any().item()
+    elif isinstance(x, np.ndarray):
+        return np.isnan(x).any()
+    else:
+        return pd.isna(x)

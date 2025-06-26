@@ -5,7 +5,7 @@ from tqdm.auto import tqdm
 from spatialnca.layers.mlp import SimpleMLP
 from spatialnca.layers.egnn import EGNNLayer
 from spatialnca.config import Config
-from spatialnca.utils import construct_graph
+from spatialnca.utils import construct_graph, isna
 
 
 class SpatialNCA(nn.Module):
@@ -99,8 +99,16 @@ class SpatialNCA(nn.Module):
         loss = 0 if loss_fn is not None else None
         # track results per step if return_evolution is True
         states = [save_state(h, pos, edge_index, loss, 0)]
-        for i in tqdm(range(n_steps), total=n_steps, desc="Rollout", disable=not prog_bar):
+        for i in tqdm(
+            range(n_steps), total=n_steps, desc="Rollout", disable=not prog_bar
+        ):
             h, pos, edge_index = self.step(h, pos, edge_index)
+
+            if isna(h):
+                raise ValueError(f"h contains NaNs in step {i}")
+
+            if isna(pos):
+                raise ValueError(f"pos contains NaNs in step {i}")
 
             # compute mean intermediate loss (optional)
             if loss_fn is not None:

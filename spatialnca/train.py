@@ -4,12 +4,41 @@ from tqdm.auto import tqdm
 import numpy as np
 import pandas as pd
 import math
+import wandb
+from pprint import pprint
 import matplotlib.pyplot as plt
+import scanpy as sc
 
 from spatialnca.model import SpatialNCA
 from spatialnca.spatial import uniform_point_cloud, sunflower_points, random_walk
 from spatialnca.config import Config
-from spatialnca.utils import construct_graph
+from spatialnca.utils import construct_graph, seed_everything
+from spatialnca.data import prepare_data
+
+
+def train(cfg: Config, print_cfg: bool = False):
+    with wandb.init(project="spatialnca", config=cfg.to_dict()) as run:
+        cfg = Config(**run.config)
+        if print_cfg:
+            pprint(cfg.to_dict())
+
+        adata = sc.read_h5ad(cfg.path)
+
+        # seed everything
+        seed_everything(cfg.seed)
+
+        data = prepare_data(adata, cfg, construct_edge_index=cfg.fixed_edge_index)
+
+        spnca = SpatialNCA(
+            data.num_features,
+            cfg,
+        )
+
+        trainer = Trainer(model=spnca, cfg=cfg)
+
+        trainer.train(data)
+
+    return trainer
 
 
 class Trainer:
@@ -41,6 +70,7 @@ class Trainer:
             if cfg.lr_decay
             else None
         )
+        self.logger = WandbLogger()
 
     def setup_training(self, data):
         # TODO make this batch aware for later
@@ -63,9 +93,6 @@ class Trainer:
 
         # setup optimizer
         self.setup_optimizer()
-
-        # setup history
-        self.history = []
 
     def setup_optimizer(self):
         # setup optimizer
@@ -91,12 +118,12 @@ class Trainer:
             # train one epoch
             loss = self.train_one_epoch(data)
 
-            # store history
-            self.history.append({"epoch": epoch, "train_loss": loss.item()})
+            # log metrics
+            self.logger.log({"epoch": epoch, "train_loss": loss.item()})
 
             # dynamically update progress bar
             prog_bar.set_postfix(
-                {k: v for k, v in self.history[-1].items() if k != "epoch"}
+                {k: v for k, v in self.logger.history[-1].items() if k != "epoch"}
             )
 
     def train_one_epoch(self, data):
@@ -141,7 +168,7 @@ class Trainer:
         return loss
 
     def plot_history(self, log_scale=True, title=None, save_path=None):
-        df = pd.DataFrame(self.history)
+        df = pd.DataFrame(self.logger.history)
         plt.plot(df["train_loss"])
         plt.xlabel("Epoch")
         plt.ylabel("Loss")
@@ -253,3 +280,13 @@ class LearningRateScheduler:
         assert 0 <= decay_ratio <= 1
         coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))  # coeff ranges 0..1
         return self.min_lr + coeff * (self.lr - self.min_lr)
+
+
+class WandbLogger:
+    def __init__(self):
+        self.history = []
+
+    def log(self, metrics: dict, **kwargs):
+        self.history.append(metrics)
+        if wandb.run is not None:
+            wandb.run.log(metrics, **kwargs)
