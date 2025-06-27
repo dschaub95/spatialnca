@@ -55,6 +55,7 @@ class EGNNLayer(MessagePassing):
 
         self.kernel = None
         if cfg.kernel_fn is not None:
+            cfg.kernel_kwargs = cfg.kernel_kwargs or {}
             if cfg.kernel_fn == "gaussian":
                 self.kernel = GaussianKernel(
                     sigma=cfg.kernel_kwargs.get("sigma", 0.0),
