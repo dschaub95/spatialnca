@@ -27,7 +27,7 @@ def train(cfg: Config, print_cfg: bool = False):
         # seed everything
         seed_everything(cfg.seed)
 
-        data = prepare_data(adata, cfg, construct_edge_index=cfg.fixed_edge_index)
+        data = prepare_data(adata, cfg, construct_edge_index=not cfg.dynamic_edges)
 
         spnca = SpatialNCA(
             data.num_features,

@@ -36,7 +36,7 @@ class SpatialNCA(nn.Module):
             **kwargs,
         )
         self.fixed_emb = None
-        self.fixed_edge_index = True
+        self.dynamic_edges = False
 
         # Initialize weights
         if cfg.gpt2_weight_init:
@@ -80,9 +80,9 @@ class SpatialNCA(nn.Module):
         # create edge index if not provided, otherwise keep it fixed
         if edge_index is None:
             edge_index = self.init_edge_index(pos)
-            self.fixed_edge_index = False
+            self.dynamic_edges = True
         else:
-            self.fixed_edge_index = True
+            self.dynamic_edges = False
 
         # embed the input features and store them
         if x is None:
@@ -139,7 +139,7 @@ class SpatialNCA(nn.Module):
             pos = torch.clamp(pos, min=self.bounds[0], max=self.bounds[1])
 
         # update the edge index based on the new positions
-        if not self.fixed_edge_index:
+        if self.dynamic_edges:
             edge_index = self.update_edge_index(pos, edge_index)
 
         return h, pos, edge_index
