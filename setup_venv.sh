@@ -4,6 +4,7 @@ if [ -d "/epyc" ]; then
 elif [ ! -z "${UV_CACHE_DIR}" ]; then
     export UV_CACHE_DIR="${UV_CACHE_DIR}"
 fi
+echo "UV cache directory: ${UV_CACHE_DIR}"
 
 rm -r .venv
 uv venv
