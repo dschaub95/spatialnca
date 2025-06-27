@@ -1,3 +1,10 @@
+# Set UV cache directory if /epyc exists or if UV_CACHE_DIR is specified
+if [ -d "/epyc" ]; then
+    export UV_CACHE_DIR=/epyc/projects/dschaub/.uv-cache
+elif [ ! -z "${UV_CACHE_DIR}" ]; then
+    export UV_CACHE_DIR="${UV_CACHE_DIR}"
+fi
+
 rm -r .venv
 uv venv
 source .venv/bin/activate
