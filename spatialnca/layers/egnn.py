@@ -2,6 +2,7 @@ from torch_geometric.nn import MessagePassing
 import torch_geometric as pyg
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch_scatter import scatter
 from spatialnca.layers.mlp import SimpleMLP
 from spatialnca.config import Config
@@ -144,7 +145,8 @@ class GaussianKernel(nn.Module):
 
     def forward(self, x):
         # https://www.desmos.com/calculator/olo9fetyvt
-        return torch.exp(-self.sigma * x**2)
+        # make sure sigma is positive for numerical stability
+        return torch.exp(-F.softplus(self.sigma) * x**2)
 
 
 class SigmoidKernel(nn.Module):
