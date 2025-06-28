@@ -41,12 +41,12 @@ class Config(BaseConfig):
     path: str = "data/Zhuang-ABCA-3.003_slice.h5ad"
     n_pcs: int = 50
     emb_key: str | None = "X_pca"  # None to use learnable embedding per node
-    dynamic_edges: bool = False
 
     # training
     n_epochs: int = 10000
     n_steps: int = 5
     lr: float = 1e-3
+    warmup_iters: int = 0
     clip_value: float = 1.0
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
     batch_size: int = 1
@@ -54,6 +54,10 @@ class Config(BaseConfig):
     pos_init_fn: str = "gaussian"
     pos_init_kwargs: dict | None = None
     weight_decay: float = 0.0
+    dynamic_edges: bool = False
+    n_static_warmup_steps: int = 0
+    use_orig_graph: bool = True
+    edge_update_steps: int = 1  # update the edge index every n_steps
 
     # model
     emb_dim: int = 32

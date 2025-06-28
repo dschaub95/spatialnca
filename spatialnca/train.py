@@ -27,7 +27,7 @@ def train(cfg: Config, print_cfg: bool = False):
         # seed everything
         seed_everything(cfg.seed)
 
-        data = prepare_data(adata, cfg, construct_edge_index=not cfg.dynamic_edges)
+        data = prepare_data(adata, cfg)
 
         spnca = SpatialNCA(
             data.num_features,
@@ -47,6 +47,7 @@ class Trainer:
         model: SpatialNCA,
         cfg: Config,
     ):
+        self.cfg = cfg
         self.n_epochs = cfg.n_epochs
         self.batch_size = cfg.batch_size
         self.lr = cfg.lr
@@ -54,16 +55,18 @@ class Trainer:
         self.reintv = cfg.reinit_interval
         self.device = cfg.device
         self.pos_init_fn = cfg.pos_init_fn
-        self.pos_init_kwargs = cfg.pos_init_kwargs if cfg.pos_init_kwargs else {}
+        self.pos_init_kwargs = cfg.pos_init_kwargs or {}
         self.intm_loss = cfg.intm_loss
         self.weight_decay = cfg.weight_decay
+        self.dynamic_edges = cfg.dynamic_edges
+        self.n_static_warmup_steps = cfg.n_static_warmup_steps
 
         self.model = model
         self.step_sampler = StepSampler(cfg.n_steps)
         self.lr_scheduler = (
             LearningRateScheduler(
                 lr=cfg.lr,
-                warmup_iters=0,
+                warmup_iters=cfg.warmup_iters,
                 lr_decay_iters=cfg.n_epochs,
                 min_lr=cfg.lr / 10,
             )
@@ -116,7 +119,12 @@ class Trainer:
                     param_group["lr"] = lr
 
             # train one epoch
-            loss = self.train_one_epoch(data)
+            loss = self.train_one_epoch(
+                data,
+                dynamic_edges=self.dynamic_edges
+                if epoch >= self.n_static_warmup_steps
+                else False,
+            )
 
             # log metrics
             self.logger.log({"epoch": epoch, "train_loss": loss.item()})
@@ -126,7 +134,7 @@ class Trainer:
                 {k: v for k, v in self.logger.history[-1].items() if k != "epoch"}
             )
 
-    def train_one_epoch(self, data):
+    def train_one_epoch(self, data, dynamic_edges=False):
         # sample number of steps
         n_steps = self.step_sampler.sample()
 
@@ -135,8 +143,11 @@ class Trainer:
             x=data.x,
             pos=data.pos_init,
             n_steps=n_steps,
-            edge_index=data.edge_index,
+            edge_index=data.edge_index
+            if self.cfg.use_orig_graph
+            else data.edge_index_init,
             loss_fn=self.compute_loss if self.intm_loss else None,
+            dynamic_edges=dynamic_edges,
         )
 
         # compute loss if not provided
@@ -223,13 +234,15 @@ class Trainer:
             plt.show()
         else:
             raise ValueError(f"Unknown pos_init_fn: {self.pos_init_fn}")
-        # median_dist = self.dists_true.median()
-        # data.pos_init = torch.tensor(
-        #     uniform_point_cloud(data.num_nodes, median_dist / 2),
-        #     device=self.device,
-        # )
-        # adapt the model radius to the scale of the data
-        # self.model.radius = 2 * median_dist
+
+        # directly construct the initial edge index to avoid recomputing it in the rollout
+        data.edge_index_init = construct_graph(
+            data.pos_init,
+            radius=self.cfg.radius,
+            knn=self.cfg.knn,
+            delaunay=self.cfg.delaunay,
+            batch=data.batch,
+        )
 
 
 class Tester:

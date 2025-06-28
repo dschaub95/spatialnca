@@ -24,6 +24,7 @@ class SpatialNCA(nn.Module):
         self.add_init = cfg.add_init
         self.skip_connections = cfg.skip_connections
         self.bounds = cfg.bounds
+        self.edge_update_steps = cfg.edge_update_steps
 
         self.mpnn = EGNNLayer(cfg)
         self.mlp_emb = SimpleMLP(
@@ -36,7 +37,6 @@ class SpatialNCA(nn.Module):
             **kwargs,
         )
         self.fixed_emb = None
-        self.dynamic_edges = False
 
         # Initialize weights
         if cfg.gpt2_weight_init:
@@ -74,15 +74,13 @@ class SpatialNCA(nn.Module):
         loss_fn=None,
         return_evolution=False,
         prog_bar=False,
+        dynamic_edges=False,
     ):
         assert n_steps > 0, "n_steps must be greater than 0"
 
-        # create edge index if not provided, otherwise keep it fixed
+        # create edge index if not provided
         if edge_index is None:
             edge_index = self.init_edge_index(pos)
-            self.dynamic_edges = True
-        else:
-            self.dynamic_edges = False
 
         # embed the input features and store them
         if x is None:
@@ -103,6 +101,10 @@ class SpatialNCA(nn.Module):
             range(n_steps), total=n_steps, desc="Rollout", disable=not prog_bar
         ):
             h, pos, edge_index = self.step(h, pos, edge_index)
+
+            # update the edge index based on the new positions
+            if dynamic_edges and (i + 1) % self.edge_update_steps == 0:
+                edge_index = self.update_edge_index(pos, edge_index=edge_index)
 
             if isna(h):
                 raise ValueError(f"h contains NaNs in step {i}")
@@ -137,10 +139,6 @@ class SpatialNCA(nn.Module):
         # confine pos to bound range
         if self.bounds is not None:
             pos = torch.clamp(pos, min=self.bounds[0], max=self.bounds[1])
-
-        # update the edge index based on the new positions
-        if self.dynamic_edges:
-            edge_index = self.update_edge_index(pos, edge_index)
 
         return h, pos, edge_index
 
