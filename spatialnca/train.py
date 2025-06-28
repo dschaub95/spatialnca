@@ -157,7 +157,7 @@ class Trainer:
         self.optimizer.zero_grad()
         loss.backward()
 
-        torch.nn.utils.clip_grad_value_(self.model.parameters(), self.clip_value)
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip_value)
         self.optimizer.step()
 
         # check for NaN loss
