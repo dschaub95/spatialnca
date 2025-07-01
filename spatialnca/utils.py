@@ -15,7 +15,7 @@ from matplotlib.animation import FFMpegWriter
 
 from torch_geometric.transforms.delaunay import Delaunay
 from torch_geometric.data import Data
-from torch_geometric.utils import to_undirected
+from torch_geometric.utils import to_undirected, remove_self_loops
 
 
 def grid2d(shape=(10, 10)):
@@ -192,7 +192,7 @@ def spatial_scatter(adata, color=None, pos_key="spatial", title=None, cmap=None)
     plt.show()
 
 
-def complete_graph(num_nodes, batch=None, device=None):
+def complete_graph(num_nodes, batch=None, device=None, self_loops=True):
     if batch is None:
         edge_index = torch.cartesian_prod(
             torch.arange(num_nodes), torch.arange(num_nodes)
@@ -200,6 +200,10 @@ def complete_graph(num_nodes, batch=None, device=None):
     else:
         # TODO implement batch
         raise NotImplementedError("Batch not implemented yet")
+
+    if not self_loops:
+        edge_index = remove_self_loops(edge_index)[0]
+
     if device is not None:
         edge_index = edge_index.to(device)
     return edge_index
