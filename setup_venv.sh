@@ -6,7 +6,7 @@ elif [ ! -z "${UV_CACHE_DIR}" ]; then
 fi
 echo "UV cache directory: ${UV_CACHE_DIR}"
 
-rm -r .venv
+# rm -r .venv
 uv venv
 source .venv/bin/activate
 uv sync
