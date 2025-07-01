@@ -85,8 +85,14 @@ class Trainer:
 
         # create full edge index for training loss calculation
         num_nodes = data.num_nodes
+        # Efficiently generate all unique, unordered node pairs **without**
+        # instantiating an O(N²) dense matrix. For large graphs the previous
+        # approach (`torch.ones(...).nonzero()`) was both memory- and
+        # compute-intensive and could easily lead to out-of-memory errors.
         edge_index_full = (
-            torch.ones(num_nodes, num_nodes).tril(-1).nonzero().T.to(self.device)
+            torch.combinations(
+                torch.arange(num_nodes, device=self.device), r=2, with_replacement=False
+            ).T
         )
         dists_true = torch.norm(
             data.pos[edge_index_full[0]] - data.pos[edge_index_full[1]], p=2, dim=-1

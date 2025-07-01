@@ -11,9 +11,23 @@ class SimpleMLP(MLP):
         act="silu",
         dropout=0.0,
         norm=None,
-        plain_last=False,
+        plain_last: bool = False,
+        bias: bool = True,
         **kwargs,
     ):
+        """Light-weight wrapper around :class:`torch_geometric.nn.MLP` that
+        exposes the most commonly used arguments while ensuring that the
+        *bias* flag is honoured. The previous implementation silently ignored
+        the provided *bias* argument and always defaulted to ``True`` unless it
+        was passed via ``**kwargs`` – a hard-to-spot logic bug that made it
+        impossible to disable biases from the call-site.
+
+        Parameters
+        ----------
+        bias
+            Whether to add learnable bias parameters in the linear layers.
+        """
+
         hidden_channels = out_channels if hidden_channels is None else hidden_channels
         super().__init__(
             channel_list=None,
@@ -28,5 +42,5 @@ class SimpleMLP(MLP):
             norm=norm,
             norm_kwargs=kwargs.get("norm_kwargs", None),
             plain_last=plain_last,
-            bias=kwargs.get("bias", True),
+            bias=bias,
         )
