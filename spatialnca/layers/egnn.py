@@ -1,5 +1,6 @@
 from torch_geometric.nn import MessagePassing
 import torch_geometric as pyg
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -139,12 +140,16 @@ def smooth_saturating(x: torch.Tensor, c: float | torch.Tensor):
 
 
 class GaussianKernel(nn.Module):
-    def __init__(self, sigma=0.0, learnable: bool = True):
+    def __init__(self, sigma=0.0, eps=None, radius=None, learnable: bool = True):
         super().__init__()
+        # allow to set sigma such that the kernel takes values smaller than eps
+        # for distances greater than radius
+        if eps is not None and radius is not None:
+            sigma = -np.log(eps) / (radius**2)
         self.sigma = nn.Parameter(torch.ones(1) * sigma) if learnable else sigma
 
     def forward(self, x):
-        # https://www.desmos.com/calculator/olo9fetyvt
+        # https://www.desmos.com/calculator/rmwc3azq94
         # make sure sigma is positive for numerical stability
         return torch.exp(-F.softplus(self.sigma) * x**2)
 
