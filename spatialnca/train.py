@@ -80,6 +80,7 @@ class Trainer:
 
         # transfer to device
         data = data.to(self.device)
+        self.data = data
         self.model = self.model.to(self.device)
 
         # create full edge index for training loss calculation
@@ -236,13 +237,17 @@ class Trainer:
             raise ValueError(f"Unknown pos_init_fn: {self.pos_init_fn}")
 
         # directly construct the initial edge index to avoid recomputing it in the rollout
-        data.edge_index_init = construct_graph(
-            data.pos_init,
-            radius=self.cfg.radius,
-            knn=self.cfg.knn,
-            delaunay=self.cfg.delaunay,
-            batch=data.batch,
-        )
+        if self.cfg.complete:
+            # prevent recomputing the edge index to save memory
+            data.edge_index_init = data.edge_index
+        else:
+            data.edge_index_init = construct_graph(
+                data.pos_init,
+                radius=self.cfg.radius,
+                knn=self.cfg.knn,
+                delaunay=self.cfg.delaunay,
+                batch=data.batch,
+            )
 
 
 class Tester:
