@@ -94,7 +94,7 @@ class SpatialNCA(nn.Module):
         h = self.h_init if h is None else h
 
         # run for multiple steps
-        loss = 0 if loss_fn is not None else None
+        loss = torch.tensor(0.0, device=self.device) if loss_fn is not None else None
         # track results per step if return_evolution is True
         states = [save_state(h, pos, edge_index, loss, 0)]
         for i in tqdm(
@@ -114,7 +114,7 @@ class SpatialNCA(nn.Module):
 
             # compute mean intermediate loss (optional)
             if loss_fn is not None:
-                loss += loss_fn(pos) * (i + 1) / n_steps
+                loss += loss_fn(pos) / n_steps
 
             if return_evolution:
                 states.append(save_state(h, pos, edge_index, loss, i + 1))
