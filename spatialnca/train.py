@@ -229,15 +229,16 @@ class Trainer:
                 max_displacement=max_dist,
                 progress_bar=False,
             )
-
-            x, y = data.pos_init.detach().cpu().numpy().T
-            plt.figure(figsize=(5, 5))
-            plt.scatter(x, y, s=5)
-            plt.gca().set_aspect("equal")
-            plt.title("Random walk initialization")
-            plt.show()
         else:
             raise ValueError(f"Unknown pos_init_fn: {self.pos_init_fn}")
+        
+        if self.cfg.plot_init_pos:
+            x, y = data.pos_init.detach().cpu().numpy().T
+            fig = plt.figure(figsize=(5, 5))
+            plt.scatter(x, y, s=5)
+            plt.gca().set_aspect("equal")
+            plt.title("Initial positions")
+            self.logger.log_plot(fig, "init_pos")
 
         # directly construct the initial edge index to avoid recomputing it in the rollout
         if self.cfg.complete:
@@ -311,3 +312,7 @@ class WandbLogger:
         self.history.append(metrics)
         if wandb.run is not None:
             wandb.run.log(metrics, **kwargs)
+        
+    def log_plot(self, plot, name):
+        if wandb.run is not None:
+            wandb.run.log({name: plot})

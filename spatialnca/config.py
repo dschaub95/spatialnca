@@ -59,6 +59,7 @@ class Config(BaseConfig):
     use_orig_graph: bool = True
     edge_update_steps: int = 1  # update the edge index every n_steps
     watch: bool = False
+    plot_init_pos: bool = False
 
     # model
     emb_dim: int = 32
