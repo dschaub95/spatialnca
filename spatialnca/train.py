@@ -233,12 +233,33 @@ class Trainer:
             raise ValueError(f"Unknown pos_init_fn: {self.pos_init_fn}")
         
         if self.cfg.plot_init_pos:
-            x, y = data.pos_init.detach().cpu().numpy().T
-            fig = plt.figure(figsize=(5, 5))
-            plt.scatter(x, y, s=5)
-            plt.gca().set_aspect("equal")
-            plt.title("Initial positions")
-            self.logger.log_plot(fig, "init_pos")
+            x_init, y_init = data.pos_init.detach().cpu().numpy().T
+            x, y = data.pos.detach().cpu().numpy().T
+            
+            # Get overall min/max for consistent scaling
+            x_min = min(x_init.min(), x.min())
+            x_max = max(x_init.max(), x.max()) 
+            y_min = min(y_init.min(), y.min())
+            y_max = max(y_init.max(), y.max())
+            
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
+            
+            ax1.scatter(x_init, y_init, s=5)
+            ax1.set_xlim(x_min, x_max)
+            ax1.set_ylim(y_min, y_max)
+            ax1.set_aspect('equal')
+            ax1.set_title('Initial positions')
+            
+            ax2.scatter(x, y, s=5)
+            ax2.set_xlim(x_min, x_max)
+            ax2.set_ylim(y_min, y_max)
+            ax2.set_aspect('equal')
+            ax2.set_title('True positions')
+            
+            plt.tight_layout()
+            self.logger.log_plot(fig, "positions")
+            plt.show()
+            
 
         # directly construct the initial edge index to avoid recomputing it in the rollout
         if self.cfg.complete:
