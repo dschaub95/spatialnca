@@ -22,6 +22,7 @@ class EGNNLayer(MessagePassing):
         self.max_scale = cfg.max_coord_upd_norm
         self.scale_by_dist = cfg.scale_by_dist
         self.use_attn = cfg.use_attn
+        self.alpha_decay = cfg.alpha_decay
 
         self.mlp_msg = SimpleMLP(
             in_channels=cfg.emb_dim * 2 + 1,  # + 1 for the distance input
@@ -61,6 +62,8 @@ class EGNNLayer(MessagePassing):
             if cfg.kernel_fn == "gaussian":
                 self.kernel = GaussianKernel(
                     sigma=cfg.kernel_kwargs.get("sigma", 0.0),
+                    eps=cfg.kernel_kwargs.get("eps", None),
+                    max_radius=cfg.kernel_kwargs.get("max_radius", None),
                     learnable=cfg.kernel_kwargs.get("learnable", True),
                 )
             elif cfg.kernel_fn == "sigmoid":
@@ -89,8 +92,11 @@ class EGNNLayer(MessagePassing):
         msg = self.mlp_msg(msg)
 
         if self.use_attn:
-            alpha = msg[:, -1:]
-            alpha = pyg.utils.softmax(alpha, index, ptr, size_i)
+            logits = msg[:, -1:]
+            if self.alpha_decay:
+                # reduces influence of very far away nodes
+                logits = logits - self.kernel.get_logits(dist)
+            alpha = pyg.utils.softmax(logits, index, ptr, size_i)
             msg = msg[:, :-1]
 
         # intuitively determines in which direction to move
@@ -140,18 +146,24 @@ def smooth_saturating(x: torch.Tensor, c: float | torch.Tensor):
 
 
 class GaussianKernel(nn.Module):
-    def __init__(self, sigma=0.0, eps=None, radius=None, learnable: bool = True):
+    def __init__(self, sigma=0.0, eps=None, max_radius=None, learnable: bool = True):
         super().__init__()
         # allow to set sigma such that the kernel takes values smaller than eps
-        # for distances greater than radius
-        if eps is not None and radius is not None:
-            sigma = -np.log(eps) / (radius**2)
+        # for distances greater than max_radius
+        if eps is not None and max_radius is not None:
+            self.sigma_offset = -np.log(eps) / (max_radius**2)
+            print(f"Using sigma offset for eps {eps} and max_radius {max_radius}: {self.sigma_offset}")
+        else:
+            self.sigma_offset = 0.0
         self.sigma = nn.Parameter(torch.ones(1) * sigma) if learnable else sigma
 
     def forward(self, x):
         # https://www.desmos.com/calculator/rmwc3azq94
         # make sure sigma is positive for numerical stability
-        return torch.exp(-F.softplus(self.sigma) * x**2)
+        return torch.exp(-self.get_logits(x))
+
+    def get_logits(self, x):
+        return (F.softplus(self.sigma) + self.sigma_offset) * x**2
 
 
 class SigmoidKernel(nn.Module):

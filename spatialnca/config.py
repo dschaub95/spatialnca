@@ -58,6 +58,7 @@ class Config(BaseConfig):
     n_static_warmup_steps: int = 0
     use_orig_graph: bool = True
     edge_update_steps: int = 1  # update the edge index every n_steps
+    watch: bool = False
 
     # model
     emb_dim: int = 32
@@ -87,3 +88,4 @@ class Config(BaseConfig):
     kernel_fn: str | None = None
     kernel_kwargs: dict | None = None
     scale_by_dist: bool = False
+    alpha_decay: bool = False

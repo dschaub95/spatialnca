@@ -34,6 +34,9 @@ def train(cfg: Config, print_cfg: bool = False):
             cfg,
         )
 
+        if cfg.watch:
+            wandb.watch(spnca, log="all")
+
         trainer = Trainer(model=spnca, cfg=cfg)
 
         trainer.train(data)
