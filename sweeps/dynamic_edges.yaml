@@ -1,0 +1,33 @@
+program: run.py
+method: random
+metric:
+  goal: minimize
+  name: train_loss
+parameters:
+  dynamic_edges:
+    values: [true]
+  n_static_warmup_steps:
+    values: [0, 500, 1000, 2000]
+  edge_update_steps:
+    values: [1, 2]
+  use_orig_graph:
+    values: [false]
+  clip_value:
+    values: [0.25, 0.5, 0.75, 1.0]
+  lr:
+    values: [0.01, 0.001, 0.0001]
+  knn:
+    values: [5, 10, 20]
+  warmup_iters:
+    values: [0, 1000]
+  n_steps:
+    values: [5, 10, 20]
+  kernel_fn:
+    values: [gaussian, null]
+  max_coord_upd_norm:
+    values: [null, 0.25, 0.5, 0.75]
+  add_init:
+    values: [true, false]
+  use_attn:
+    values: [true, false]
+  
