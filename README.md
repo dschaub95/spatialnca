@@ -21,5 +21,10 @@ Now you can create the virtual environment by running the setup script:
 bash setup_venv.sh
 ```
 
+Run remotely:
+```bash
+kubectl exec -it statefulset-darius-a100-0 -- bash -c "cd /epyc/projects/dschaub/method-projects/spatialnca && exec bash"
 
+uv run run.py --add_init=True --clip_value=1.0 --max_coord_upd_norm=0.05 --complete=True --pos_init_kwargs='{"scale": 0.05}' --kernel_fn=gaussian --kernel_kwargs='{"eps": 0.02, "max_radius": 0.05}' --use_attn=True --scale_by_dist=True --watch=True
+```
 
