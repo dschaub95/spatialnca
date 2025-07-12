@@ -307,3 +307,16 @@ def isna(x):
         return np.isnan(x).any()
     else:
         return pd.isna(x)
+
+
+def load_wandb_config(run_path: str) -> dict:
+    import wandb
+    from spatialnca.config import Config
+
+    api = wandb.Api()  # WANDB_API_KEY must be set in your env
+    run = api.run(run_path)  # fetch the run object
+    config_dict = dict(run.config)
+    for k, v in config_dict.items():
+        if v == "Infinity":
+            config_dict[k] = np.inf
+    return Config(**config_dict)
