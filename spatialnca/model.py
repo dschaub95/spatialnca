@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from tqdm.auto import tqdm
+from torch_geometric.nn import PairNorm
 
 from spatialnca.layers.mlp import SimpleMLP
 from spatialnca.layers.egnn import EGNNLayer
@@ -37,6 +38,14 @@ class SpatialNCA(nn.Module):
             **kwargs,
         )
         self.fixed_emb = None
+        if cfg.node_norm_type == "node_norm":
+            self.node_norm = NodeNorm(root_power=cfg.node_norm_cap or 2.0)
+        elif cfg.node_norm_type == "pair_norm":
+            self.node_norm = PairNorm(scale=cfg.node_norm_cap or 1.0)
+        elif cfg.node_norm_type is None:
+            self.node_norm = None
+        else:
+            raise ValueError(f"Node norm type {cfg.node_norm_type} not supported")
 
         # Initialize weights
         if cfg.gpt2_weight_init:
@@ -54,7 +63,7 @@ class SpatialNCA(nn.Module):
                 torch.randn(n_cells, self.emb_dim, device=self.device)
             )
 
-    def forward(self, h, pos, edge_index, h_init, edge_attr=None):
+    def forward(self, h, pos, edge_index, h_init, edge_attr=None, batch=None):
         # add initial node features
         h = h + h_init if self.add_init else h
 
@@ -62,6 +71,11 @@ class SpatialNCA(nn.Module):
         h_update, pos_update = self.mpnn(h, pos, edge_index)
         h = h + h_update if self.skip_connections else h_update
         pos = pos + pos_update
+
+        # normalize the node features
+        if self.node_norm is not None:
+            h = self.node_norm(h, batch=batch)
+
         return h, pos
 
     def rollout(
@@ -175,3 +189,27 @@ def save_state(h, pos, edge_index, loss, step):
         "loss": loss.detach().cpu() if loss is not None else None,
         "step": step,
     }
+
+
+class NodeNorm(nn.Module):
+    # adapted from https://github.com/gengala/egnca/blob/main/models.py
+    def __init__(
+        self,
+        unbiased: bool = False,
+        eps: float = 1e-5,
+        root_power: float = 2.0,
+    ):
+        super(NodeNorm, self).__init__()
+        self.unbiased = unbiased
+        self.eps = eps
+        self.power = 1 / root_power
+
+    def forward(self, x: torch.Tensor, **kwargs):
+        std = (
+            torch.var(x, unbiased=self.unbiased, dim=-1, keepdim=True) + self.eps
+        ).sqrt()
+        x = x / torch.pow(std, self.power)
+        return x
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}()"

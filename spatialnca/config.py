@@ -90,3 +90,5 @@ class Config(BaseConfig):
     kernel_kwargs: dict | None = None
     scale_by_dist: bool = False
     alpha_decay: bool = False
+    node_norm_type: str | None = None
+    node_norm_cap: float | None = None
