@@ -92,3 +92,4 @@ class Config(BaseConfig):
     alpha_decay: bool = False
     node_norm_type: str | None = None
     node_norm_cap: float | None = None
+    early_msg_agg: bool = False

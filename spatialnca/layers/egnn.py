@@ -23,6 +23,7 @@ class EGNNLayer(MessagePassing):
         self.scale_by_dist = cfg.scale_by_dist
         self.use_attn = cfg.use_attn
         self.alpha_decay = cfg.alpha_decay
+        self.early_msg_agg = cfg.early_msg_agg
 
         self.mlp_msg = SimpleMLP(
             in_channels=cfg.emb_dim * 2 + 1,  # + 1 for the distance input
@@ -44,7 +45,7 @@ class EGNNLayer(MessagePassing):
         )
         self.mlp_pos = nn.Sequential(
             SimpleMLP(
-                in_channels=msg_dim,
+                in_channels=msg_dim * 2 if cfg.early_msg_agg else msg_dim,
                 out_channels=1,
                 hidden_channels=cfg.hidden_dim,
                 n_layers=cfg.n_layers_pos,
@@ -99,14 +100,23 @@ class EGNNLayer(MessagePassing):
             alpha = pyg.utils.softmax(logits, index, ptr, size_i)
             msg = msg[:, :-1]
 
+        if self.early_msg_agg:
+            # create temporary message to so the pos input msg is the same as in the non-early case
+            msg_tmp = msg * dist_kernel if self.scale_by_dist else msg
+            msg_tmp = msg_tmp * alpha if self.use_attn else msg_tmp
+            msg_aggr = scatter(msg_tmp, index, dim=self.node_dim, reduce=self.aggr)
+            pos_input = torch.cat([msg, msg_aggr[index]], dim=-1)
+        else:
+            pos_input = msg
+
         # intuitively determines in which direction to move
         # might be improvable by using the message and the aggregated message
         # to get a full picture before determining what to focus on
         if self.max_scale is None:
-            diff_scaler = self.mlp_pos(msg)
+            diff_scaler = self.mlp_pos(pos_input)
         else:
             c = (1 / torch.clamp(dist, min=1e-6)) * self.max_scale
-            diff_scaler = smooth_saturating(self.mlp_pos(msg), c)
+            diff_scaler = smooth_saturating(self.mlp_pos(pos_input), c)
             # diff_scaler.shape = (num_edges, 1)
 
         # set norm to 1 --> network scaling will be off
@@ -119,17 +129,21 @@ class EGNNLayer(MessagePassing):
         # to ensure far away nodes have limited impact
         diff_scaled = diff_scaled * dist_kernel if self.scale_by_dist else diff_scaled
 
-        # scale message by distance kernel if specified to effectively use a soft radius
-        msg = msg * dist_kernel if self.scale_by_dist else msg
-
-        # scale message by attention if specified
-        msg = msg * alpha if self.use_attn else msg
-
-        return msg, diff_scaled
+        if not self.early_msg_agg:
+            # scale message by distance kernel if specified to effectively use a soft radius
+            msg = msg * dist_kernel if self.scale_by_dist else msg
+            # scale message by attention if specified
+            msg = msg * alpha if self.use_attn else msg
+            return msg, diff_scaled
+        else:
+            return msg_aggr, diff_scaled
 
     def aggregate(self, inputs, index):
         node_msg, pos_msg = inputs
-        msg_aggr = scatter(node_msg, index, dim=self.node_dim, reduce=self.aggr)
+        if self.early_msg_agg:
+            msg_aggr = node_msg
+        else:
+            msg_aggr = scatter(node_msg, index, dim=self.node_dim, reduce=self.aggr)
         x_aggr = scatter(pos_msg, index, dim=self.node_dim, reduce=self.aggr_pos)
         return msg_aggr, x_aggr
 
@@ -152,7 +166,9 @@ class GaussianKernel(nn.Module):
         # for distances greater than max_radius
         if eps is not None and max_radius is not None:
             self.sigma_offset = -np.log(eps) / (max_radius**2)
-            print(f"Using sigma offset for eps {eps} and max_radius {max_radius}: {self.sigma_offset}")
+            print(
+                f"Using sigma offset for eps {eps} and max_radius {max_radius}: {self.sigma_offset}"
+            )
         else:
             self.sigma_offset = 0.0
         self.sigma = nn.Parameter(torch.ones(1) * sigma) if learnable else sigma
