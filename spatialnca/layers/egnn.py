@@ -76,6 +76,10 @@ class EGNNLayer(MessagePassing):
             else:
                 raise ValueError(f"Kernel function {cfg.kernel_fn} not supported")
 
+        assert self.kernel is not None or not cfg.alpha_decay, (
+            "alpha_decay requires a kernel function"
+        )
+
     def forward(self, h, pos, edge_index, edge_attr=None):
         # compute initial feature transfo
         out = self.propagate(edge_index, h=h, x=pos, edge_attr=edge_attr)
@@ -171,7 +175,11 @@ class GaussianKernel(nn.Module):
             )
         else:
             self.sigma_offset = 0.0
-        self.sigma = nn.Parameter(torch.ones(1) * sigma) if learnable else sigma
+
+        if learnable:
+            self.sigma = nn.Parameter(torch.ones(1) * sigma)
+        else:
+            self.register_buffer("sigma", torch.tensor(float(sigma)))
 
     def forward(self, x):
         # https://www.desmos.com/calculator/rmwc3azq94
