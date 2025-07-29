@@ -8,6 +8,12 @@ A PyTorch implementation of a cellular automata model that learns to reassemble 
 - Continuous space cellular automata
 - Support for various tissue patterns and cell configurations
 
+## Example visualization
+
+Starting from random cell positions, the model learns to reassemble the original tissue pattern.
+
+![Example visualization](docs/assets/positions.gif)
+
 ## Installation
 
 We use uv for dependency management:
